@@ -1,11 +1,10 @@
 "use client";
 
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Folder, Link2, Loader2, Lock, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,32 +20,46 @@ import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import type { SaveVisibility } from "@/lib/types";
 
+const VISIBILITY_OPTIONS = [
+  {
+    value: "private" as const,
+    label: "Private",
+    description: "Only you can see this",
+    icon: Lock,
+  },
+  {
+    value: "public" as const,
+    label: "Public",
+    description: "Visible in your public space",
+    icon: Eye,
+  },
+  {
+    value: "unlisted" as const,
+    label: "Unlisted",
+    description: "Accessible via direct link only",
+    icon: EyeOff,
+  },
+];
+
 function NewSaveFormSkeleton() {
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-6">
+    <div className="min-h-screen p-6 lg:p-8">
+      <div className="mx-auto max-w-xl">
+        <div className="mb-8">
           <Skeleton className="h-5 w-28" />
         </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-36" />
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-12" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-16" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-8">
+          <div>
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-5 w-72" />
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -110,150 +123,181 @@ function NewSaveForm() {
     });
   };
 
+  const selectedVisibility = VISIBILITY_OPTIONS.find((v) => v.value === visibility);
+  const VisibilityIcon = selectedVisibility?.icon || Lock;
+
   return (
-    <div className="p-6 lg:p-8">
-      <div className="mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="mb-6">
+    <div className="min-h-screen p-6 lg:p-8">
+      <div className="mx-auto max-w-xl">
+        {/* Back link */}
+        <div className="mb-8">
           <Link
             href={routes.app.saves}
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
             Back to saves
           </Link>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Add a new save</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* URL */}
-              <div className="space-y-2">
-                <Label htmlFor="url">URL *</Label>
-                <Input
-                  id="url"
-                  type="url"
-                  placeholder="https://example.com/article"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  required
-                />
-              </div>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight mb-1">Add a new save</h1>
+          <p className="text-muted-foreground">Save a link to read later or share with others</p>
+        </div>
 
-              {/* Title */}
-              <div className="space-y-2">
-                <Label htmlFor="title">Title (optional)</Label>
-                <Input
-                  id="title"
-                  placeholder="Leave empty to auto-fetch"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  If left empty, we'll fetch the title from the page
-                </p>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* URL - Primary field with emphasis */}
+          <div className="space-y-2">
+            <Label htmlFor="url" className="text-sm font-medium">
+              URL
+            </Label>
+            <div className="relative">
+              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                id="url"
+                type="url"
+                placeholder="https://example.com/article"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+                className="pl-10 h-12 text-base"
+              />
+            </div>
+          </div>
 
-              {/* Visibility */}
-              <div className="space-y-2">
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select
-                  value={visibility}
-                  onValueChange={(v) => setVisibility(v as SaveVisibility)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="private">
-                      <div className="flex flex-col">
-                        <span>Private</span>
-                        <span className="text-xs text-muted-foreground">Only you can see this</span>
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-sm font-medium">
+              Title
+              <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+            </Label>
+            <Input
+              id="title"
+              placeholder="Leave empty to auto-fetch from page"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="h-11"
+            />
+          </div>
+
+          {/* Two column layout for Visibility and Collection */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Visibility */}
+            <div className="space-y-2">
+              <Label htmlFor="visibility" className="text-sm font-medium">
+                Visibility
+              </Label>
+              <Select value={visibility} onValueChange={(v) => setVisibility(v as SaveVisibility)}>
+                <SelectTrigger className="h-11">
+                  <div className="flex items-center gap-2">
+                    <VisibilityIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span>{selectedVisibility?.label}</span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {VISIBILITY_OPTIONS.map((option) => (
+                    <SelectItem
+                      key={option.value}
+                      value={option.value}
+                      textValue={option.label}
+                      className="py-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <option.icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
+                        </div>
                       </div>
                     </SelectItem>
-                    <SelectItem value="public">
-                      <div className="flex flex-col">
-                        <span>Public</span>
-                        <span className="text-xs text-muted-foreground">
-                          Visible in your public space
-                        </span>
-                      </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Collection */}
+            <div className="space-y-2">
+              <Label htmlFor="collection" className="text-sm font-medium">
+                Collection
+                <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+              </Label>
+              <Select value={selectedCollection} onValueChange={setSelectedCollection}>
+                <SelectTrigger className="h-11">
+                  <div className="flex items-center gap-2">
+                    <Folder className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="None" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {collections?.map((col) => (
+                    <SelectItem key={col.id} value={col.id}>
+                      {col.name}
                     </SelectItem>
-                    <SelectItem value="unlisted">
-                      <div className="flex flex-col">
-                        <span>Unlisted</span>
-                        <span className="text-xs text-muted-foreground">
-                          Accessible via direct link only
-                        </span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              {/* Collection */}
-              <div className="space-y-2">
-                <Label htmlFor="collection">Collection (optional)</Label>
-                <Select value={selectedCollection} onValueChange={setSelectedCollection}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a collection" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {collections?.map((col) => (
-                      <SelectItem key={col.id} value={col.id}>
-                        {col.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Tags */}
+          <div className="space-y-2">
+            <Label htmlFor="tags" className="text-sm font-medium">
+              Tags
+              <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+            </Label>
+            <div className="relative">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                id="tags"
+                placeholder="design, productivity, reading"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                className="pl-10 h-11"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Separate tags with commas</p>
+          </div>
 
-              {/* Tags */}
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags (optional)</Label>
-                <Input
-                  id="tags"
-                  placeholder="design, productivity, reading"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">Separate tags with commas</p>
-              </div>
+          {/* Note */}
+          <div className="space-y-2">
+            <Label htmlFor="note" className="text-sm font-medium">
+              Private note
+              <span className="text-muted-foreground font-normal ml-1">(optional)</span>
+            </Label>
+            <Textarea
+              id="note"
+              placeholder="Add a note for yourself..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              Notes are always private, even on public saves
+            </p>
+          </div>
 
-              {/* Note */}
-              <div className="space-y-2">
-                <Label htmlFor="note">Private note (optional)</Label>
-                <Textarea
-                  id="note"
-                  placeholder="Add a note for yourself..."
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Notes are always private, even on public saves
-                </p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" disabled={!url || createSave.isPending} className="flex-1">
-                  {createSave.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save
-                </Button>
-                <Link href={routes.app.saves}>
-                  <Button type="button" variant="outline">
-                    Cancel
-                  </Button>
-                </Link>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-4 border-t">
+            <Button type="submit" disabled={!url || createSave.isPending} className="flex-1 h-11">
+              {createSave.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+            <Button type="button" variant="ghost" asChild className="h-11">
+              <Link href={routes.app.saves}>Cancel</Link>
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
