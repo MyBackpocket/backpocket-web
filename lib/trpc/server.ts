@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
-import { supabaseAdmin } from "@/lib/supabase";
 import { getVisitCount, incrementVisitCount } from "@/lib/redis";
+import { supabaseAdmin } from "@/lib/supabase";
 import type { Collection, PublicSave, PublicSpace, Save, Space, Tag } from "@/lib/types";
 
 // Check if Clerk is configured

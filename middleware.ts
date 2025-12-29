@@ -62,7 +62,7 @@ function resolveSpaceSlug(host: string): string | null {
 const isProtectedRoute = createRouteMatcher(["/app(.*)"]);
 
 // Routes that are always public (sign-in, sign-up, public spaces)
-const isPublicRoute = createRouteMatcher([
+const _isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
