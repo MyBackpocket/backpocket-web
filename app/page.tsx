@@ -226,6 +226,62 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Why Section */}
+      <section className="py-20 md:py-32">
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-8 text-center">
+              <span className="inline-block rounded-full bg-rust/10 px-4 py-1.5 text-sm font-medium text-rust">
+                The backstory
+              </span>
+            </div>
+
+            <h2 className="text-center font-serif text-3xl font-medium tracking-tight md:text-4xl">
+              Why backpocket?
+            </h2>
+
+            <div className="mt-10 space-y-6 text-lg leading-relaxed text-muted-foreground">
+              <p>
+                On July 8, 2025,{" "}
+                <a
+                  href="https://support.mozilla.org/en-US/kb/future-of-pocket"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-denim underline decoration-denim/30 underline-offset-4 transition-colors hover:text-denim-deep hover:decoration-denim"
+                >
+                  Mozilla shut down Pocket
+                </a>
+                — the beloved read-it-later app that millions of people used to save articles,
+                videos, and links for later. By November 2025, all user data was permanently
+                deleted.
+              </p>
+
+              <p>
+                For many of us, Pocket wasn&apos;t just an app. It was a personal library, a
+                collection of ideas worth revisiting, a quiet corner of the internet where we could
+                save things that mattered without the noise of social media.
+              </p>
+
+              <p>
+                <span className="font-medium text-foreground">backpocket</span> is our answer. Built
+                for the people who miss what Pocket offered — and for anyone who wants a calm,
+                focused way to save and share their finds. No social features, no tracking, no
+                algorithms. Just your collection, beautifully organized and optionally shared at
+                your own URL.
+              </p>
+            </div>
+
+            <div className="mt-10 flex justify-center">
+              <div className="inline-flex items-center gap-3 rounded-xl border border-denim/20 bg-card/50 px-5 py-3 text-sm">
+                <span className="text-muted-foreground">Pocket, 2007–2025</span>
+                <span className="text-denim/40">→</span>
+                <span className="font-medium text-rust">backpocket, 2025–</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section - Denim pocket inspired */}
       <section className="py-20 md:py-32">
         <div className="mx-auto max-w-6xl px-6">
