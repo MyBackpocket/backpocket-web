@@ -290,9 +290,7 @@ export function ReaderMode({
               prose-a:text-primary prose-a:no-underline hover:prose-a:underline
               prose-img:rounded-lg prose-img:border
               prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1
-              prose-pre:bg-muted prose-pre:border
-              prose-code:before:content-none prose-code:after:content-none
-              prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded"
+              prose-code:before:content-none prose-code:after:content-none"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized on the server
             dangerouslySetInnerHTML={{ __html: content.content }}
           />
