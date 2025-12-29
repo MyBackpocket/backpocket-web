@@ -3,6 +3,7 @@ import { collectionsRouter } from "./collections";
 import { domainsRouter } from "./domains";
 import { savesRouter } from "./saves";
 import { settingsRouter } from "./settings";
+import { snapshotsRouter } from "./snapshots";
 import { statsRouter } from "./stats";
 import { tagsRouter } from "./tags";
 
@@ -48,4 +49,9 @@ export const spaceRouter = router({
   verifyDomain: domainsRouter.verifyDomain,
   getDomainStatus: domainsRouter.getDomainStatus,
   removeDomain: domainsRouter.removeDomain,
+
+  // Snapshots
+  getSaveSnapshot: snapshotsRouter.getSaveSnapshot,
+  requestSaveSnapshot: snapshotsRouter.requestSaveSnapshot,
+  getSnapshotQuota: snapshotsRouter.getSnapshotQuota,
 });

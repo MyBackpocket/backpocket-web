@@ -6,9 +6,16 @@ import {
   PUBLIC_LIST_MAX_LIMIT,
   PUBLIC_LIST_MIN_LIMIT,
 } from "@/lib/constants/public-space";
+import { SNAPSHOT_STORAGE_BUCKET, SNAPSHOTS_ENABLED } from "@/lib/constants/snapshots";
 import { getVisitCount, incrementVisitCount } from "@/lib/redis";
+import { deserializeSnapshot } from "@/lib/snapshots";
 import { supabaseAdmin } from "@/lib/supabase";
-import type { PublicSave } from "@/lib/types";
+import type {
+  PublicSave,
+  SnapshotBlockedReason,
+  SnapshotContent,
+  SnapshotStatus,
+} from "@/lib/types";
 import { resolveSpaceFromHost } from "../services/public-space";
 import { publicProcedure, router } from "../trpc";
 
@@ -171,5 +178,89 @@ export const publicRouter = router({
         total,
         asOf: new Date().toISOString(),
       };
+    }),
+
+  /**
+   * Get snapshot for a public/unlisted save
+   */
+  getPublicSaveSnapshot: publicProcedure
+    .input(
+      z.object({
+        spaceId: z.string().uuid(),
+        saveId: z.string().uuid(),
+        includeContent: z.boolean().default(false),
+      })
+    )
+    .query(async ({ input }) => {
+      if (!SNAPSHOTS_ENABLED) {
+        return null;
+      }
+
+      // Verify the save is public/unlisted
+      const { data: save } = await supabaseAdmin
+        .from("saves")
+        .select("id, visibility")
+        .eq("id", input.saveId)
+        .eq("space_id", input.spaceId)
+        .in("visibility", ["public", "unlisted"])
+        .single();
+
+      if (!save) {
+        return null;
+      }
+
+      // Get the snapshot record
+      const { data: snapshot } = await supabaseAdmin
+        .from("save_snapshots")
+        .select("*")
+        .eq("save_id", input.saveId)
+        .single();
+
+      if (!snapshot) {
+        return null;
+      }
+
+      const result: {
+        snapshot: {
+          status: SnapshotStatus;
+          blockedReason: SnapshotBlockedReason | null;
+          fetchedAt: Date | null;
+          title: string | null;
+          byline: string | null;
+          excerpt: string | null;
+          wordCount: number | null;
+          language: string | null;
+        };
+        content?: SnapshotContent;
+      } = {
+        snapshot: {
+          status: snapshot.status as SnapshotStatus,
+          blockedReason: snapshot.blocked_reason as SnapshotBlockedReason | null,
+          fetchedAt: snapshot.fetched_at ? new Date(snapshot.fetched_at) : null,
+          title: snapshot.title,
+          byline: snapshot.byline,
+          excerpt: snapshot.excerpt,
+          wordCount: snapshot.word_count,
+          language: snapshot.language,
+        },
+      };
+
+      // If content requested and snapshot is ready, fetch from storage
+      if (input.includeContent && snapshot.status === "ready" && snapshot.storage_path) {
+        try {
+          const { data, error } = await supabaseAdmin.storage
+            .from(SNAPSHOT_STORAGE_BUCKET)
+            .download(snapshot.storage_path);
+
+          if (!error && data) {
+            const buffer = Buffer.from(await data.arrayBuffer());
+            result.content = deserializeSnapshot(buffer);
+          }
+        } catch (err) {
+          console.error("[public-snapshots] Failed to download content:", err);
+        }
+      }
+
+      return result;
     }),
 });

@@ -1,5 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
+import { SNAPSHOTS_ENABLED } from "@/lib/constants/snapshots";
+import { enqueueSnapshotJob } from "@/lib/snapshots/queue";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Collection, Tag } from "@/lib/types";
 import { createSpaceForUser, getUserSpace } from "../../services/space";
@@ -305,6 +307,21 @@ export const savesRouter = router({
             });
           }
         }
+      }
+
+      // Create snapshot job if snapshots are enabled
+      if (SNAPSHOTS_ENABLED) {
+        // Create the snapshot record
+        await supabaseAdmin.from("save_snapshots").insert({
+          save_id: save.id,
+          space_id: space.id,
+          status: "pending",
+        });
+
+        // Enqueue the snapshot job (fire and forget - don't block save creation)
+        enqueueSnapshotJob(save.id, space.id, input.url).catch((err) => {
+          console.error("[saves] Failed to enqueue snapshot job:", err);
+        });
       }
 
       return transformSave(save, tags, collections);

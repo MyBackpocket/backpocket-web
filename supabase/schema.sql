@@ -69,6 +69,31 @@ CREATE TABLE IF NOT EXISTS saves (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Save snapshots table (Pocket-style readability snapshots)
+CREATE TABLE IF NOT EXISTS save_snapshots (
+    save_id UUID PRIMARY KEY REFERENCES saves(id) ON DELETE CASCADE,
+    space_id UUID NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'ready', 'blocked', 'failed')) DEFAULT 'pending',
+    blocked_reason TEXT CHECK (blocked_reason IN (
+        'noarchive', 'forbidden', 'not_html', 'too_large', 
+        'invalid_url', 'timeout', 'parse_failed', 'ssrf_blocked', 'fetch_error'
+    )),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMPTZ,
+    fetched_at TIMESTAMPTZ,
+    storage_path TEXT, -- e.g. 'snapshots/<spaceId>/<saveId>/latest.json.gz'
+    canonical_url TEXT,
+    title TEXT,
+    byline TEXT,
+    excerpt TEXT,
+    word_count INTEGER,
+    language TEXT,
+    content_sha256 TEXT,
+    error_message TEXT, -- Last error details for debugging
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Save-Tag junction table
 CREATE TABLE IF NOT EXISTS save_tags (
     save_id UUID NOT NULL REFERENCES saves(id) ON DELETE CASCADE,
@@ -105,6 +130,9 @@ CREATE INDEX IF NOT EXISTS idx_tags_space_id ON tags(space_id);
 CREATE INDEX IF NOT EXISTS idx_collections_space_id ON collections(space_id);
 CREATE INDEX IF NOT EXISTS idx_spaces_slug ON spaces(slug);
 CREATE INDEX IF NOT EXISTS idx_domain_mappings_domain ON domain_mappings(domain);
+CREATE INDEX IF NOT EXISTS idx_save_snapshots_space_id ON save_snapshots(space_id);
+CREATE INDEX IF NOT EXISTS idx_save_snapshots_status ON save_snapshots(status);
+CREATE INDEX IF NOT EXISTS idx_save_snapshots_next_attempt ON save_snapshots(next_attempt_at) WHERE status IN ('pending', 'failed');
 
 -- Updated at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -134,6 +162,9 @@ CREATE TRIGGER update_collections_updated_at BEFORE UPDATE ON collections FOR EA
 DROP TRIGGER IF EXISTS update_domain_mappings_updated_at ON domain_mappings;
 CREATE TRIGGER update_domain_mappings_updated_at BEFORE UPDATE ON domain_mappings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_save_snapshots_updated_at ON save_snapshots;
+CREATE TRIGGER update_save_snapshots_updated_at BEFORE UPDATE ON save_snapshots FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Row Level Security (RLS) Policies
 ALTER TABLE spaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
@@ -143,6 +174,7 @@ ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE save_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE save_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE domain_mappings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE save_snapshots ENABLE ROW LEVEL SECURITY;
 
 -- Public read access for public spaces
 CREATE POLICY "Public spaces are viewable by everyone" ON spaces
@@ -151,6 +183,16 @@ CREATE POLICY "Public spaces are viewable by everyone" ON spaces
 -- Public saves are viewable by everyone
 CREATE POLICY "Public saves are viewable by everyone" ON saves
     FOR SELECT USING (visibility IN ('public', 'unlisted'));
+
+-- Public snapshots are viewable when the associated save is public/unlisted
+CREATE POLICY "Public snapshots are viewable when save is public" ON save_snapshots
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM saves 
+            WHERE saves.id = save_snapshots.save_id 
+            AND saves.visibility IN ('public', 'unlisted')
+        )
+    );
 
 -- Service role has full access (for server-side operations)
 -- Note: The service role key bypasses RLS by default

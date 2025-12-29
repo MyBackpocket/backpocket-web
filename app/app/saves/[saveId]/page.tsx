@@ -10,12 +10,15 @@ import {
   EyeOff,
   Globe,
   Link2,
+  Loader2,
   Star,
   Trash2,
+  Zap,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { use } from "react";
+import { use, useCallback, useState } from "react";
+import { ReaderMode } from "@/components/reader-mode";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,10 +28,18 @@ import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
 
+const IS_DEV = process.env.NODE_ENV === "development";
+
 export default function SaveDetailPage({ params }: { params: Promise<{ saveId: string }> }) {
   const { saveId } = use(params);
   const { data: save, isLoading } = trpc.space.getSave.useQuery({ saveId });
   const utils = trpc.useUtils();
+
+  // Query snapshot data with content
+  const { data: snapshotData, isLoading: isSnapshotLoading } = trpc.space.getSaveSnapshot.useQuery(
+    { saveId, includeContent: true },
+    { enabled: !!save }
+  );
 
   const toggleFavorite = trpc.space.toggleFavorite.useMutation({
     onSuccess: () => {
@@ -41,6 +52,45 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
       utils.space.getSave.invalidate({ saveId });
     },
   });
+
+  const requestSnapshot = trpc.space.requestSaveSnapshot.useMutation({
+    onSuccess: () => {
+      utils.space.getSaveSnapshot.invalidate({ saveId });
+    },
+  });
+
+  const handleRefreshSnapshot = useCallback(() => {
+    requestSnapshot.mutate({ saveId, force: true });
+  }, [saveId, requestSnapshot]);
+
+  // Dev-only: Direct snapshot trigger (bypasses QStash)
+  const [isDevTriggering, setIsDevTriggering] = useState(false);
+  const [devTriggerResult, setDevTriggerResult] = useState<string | null>(null);
+
+  const handleDevTriggerSnapshot = useCallback(async () => {
+    setIsDevTriggering(true);
+    setDevTriggerResult(null);
+    try {
+      const res = await fetch("/api/dev/trigger-snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ saveId }),
+      });
+      const data = await res.json();
+      setDevTriggerResult(
+        data.status === "ready"
+          ? "✓ Snapshot ready!"
+          : `${data.status}: ${data.message || data.reason}`
+      );
+      // Refresh snapshot data
+      utils.space.getSaveSnapshot.invalidate({ saveId });
+      utils.space.getSave.invalidate({ saveId });
+    } catch (err) {
+      setDevTriggerResult(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setIsDevTriggering(false);
+    }
+  }, [saveId, utils]);
 
   if (isLoading) {
     return (
@@ -217,30 +267,62 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </Card>
         </div>
 
-        {/* Reader mode placeholder */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Reading Mode (Coming Soon)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border-2 border-dashed p-8 text-center">
-              <p className="text-muted-foreground">
-                Preserved content and reader-mode view will appear here.
-              </p>
-              <a
-                href={save.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-4 inline-block"
+        {/* Reader Mode */}
+        <div className="mt-6">
+          <ReaderMode
+            status={snapshotData?.snapshot?.status ?? null}
+            blockedReason={snapshotData?.snapshot?.blockedReason}
+            content={snapshotData?.content}
+            isLoading={isSnapshotLoading}
+            onRefresh={handleRefreshSnapshot}
+            isRefreshing={requestSnapshot.isPending}
+            showRefreshButton={true}
+            originalUrl={save.url}
+          />
+        </div>
+
+        {/* Dev-only: Manual snapshot trigger */}
+        {IS_DEV && (
+          <Card className="mt-6 border-dashed border-yellow-500/50 bg-yellow-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-600">
+                <Zap className="h-4 w-4" />
+                Dev Tools
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDevTriggerSnapshot}
+                disabled={isDevTriggering}
+                className="border-yellow-500/50 hover:bg-yellow-500/10"
               >
-                <Button variant="outline">
-                  Open original
-                  <ExternalLink className="ml-2 h-4 w-4" />
-                </Button>
-              </a>
-            </div>
-          </CardContent>
-        </Card>
+                {isDevTriggering ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    Trigger Snapshot Now
+                  </>
+                )}
+              </Button>
+              {devTriggerResult && (
+                <span
+                  className={cn(
+                    "text-sm",
+                    devTriggerResult.startsWith("✓") ? "text-green-600" : "text-muted-foreground"
+                  )}
+                >
+                  {devTriggerResult}
+                </span>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <Separator className="my-8" />

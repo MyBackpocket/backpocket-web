@@ -100,3 +100,37 @@ export interface DbSaveCollection {
   save_id: string;
   collection_id: string;
 }
+
+export type SnapshotStatus = "pending" | "processing" | "ready" | "blocked" | "failed";
+
+export type SnapshotBlockedReason =
+  | "noarchive"
+  | "forbidden"
+  | "not_html"
+  | "too_large"
+  | "invalid_url"
+  | "timeout"
+  | "parse_failed"
+  | "ssrf_blocked"
+  | "fetch_error";
+
+export interface DbSaveSnapshot {
+  save_id: string;
+  space_id: string;
+  status: SnapshotStatus;
+  blocked_reason: SnapshotBlockedReason | null;
+  attempts: number;
+  next_attempt_at: string | null;
+  fetched_at: string | null;
+  storage_path: string | null;
+  canonical_url: string | null;
+  title: string | null;
+  byline: string | null;
+  excerpt: string | null;
+  word_count: number | null;
+  language: string | null;
+  content_sha256: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
