@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import type { SaveVisibility } from "@/lib/types";
 
@@ -115,7 +116,7 @@ function NewSaveForm() {
         {/* Header */}
         <div className="mb-6">
           <Link
-            href="/app/saves"
+            href={routes.app.saves}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -244,7 +245,7 @@ function NewSaveForm() {
                   {createSave.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save
                 </Button>
-                <Link href="/app/saves">
+                <Link href={routes.app.saves}>
                   <Button type="button" variant="outline">
                     Cancel
                   </Button>

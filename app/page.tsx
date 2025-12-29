@@ -7,6 +7,8 @@ import { Logo } from "@/components/logo";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { TypewriterUrl } from "@/components/typewriter-url";
 import { Button } from "@/components/ui/button";
+import { externalLinks } from "@/lib/constants/links";
+import { routes } from "@/lib/constants/routes";
 
 export default function HomePage() {
   return (
@@ -14,23 +16,23 @@ export default function HomePage() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href={routes.home} className="flex items-center gap-2">
             <Logo size="md" />
           </Link>
 
           <div className="flex items-center gap-4">
             <SignedOut>
-              <Link href="/sign-in">
+              <Link href={routes.signIn}>
                 <Button variant="ghost" size="sm">
                   Log in
                 </Button>
               </Link>
-              <Link href="/sign-up">
+              <Link href={routes.signUp}>
                 <Button size="sm">Get Started</Button>
               </Link>
             </SignedOut>
             <SignedIn>
-              <Link href="/app">
+              <Link href={routes.app.root}>
                 <Button size="sm">
                   Open App
                   <ArrowRight className="ml-1 h-4 w-4" />
@@ -72,7 +74,7 @@ export default function HomePage() {
 
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <SignedOut>
-                <Link href="/sign-up">
+                <Link href={routes.signUp}>
                   <Button size="lg" className="h-12 px-8 text-base">
                     Start for free
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -85,7 +87,7 @@ export default function HomePage() {
                 </a>
               </SignedOut>
               <SignedIn>
-                <Link href="/app">
+                <Link href={routes.app.root}>
                   <Button size="lg" className="h-12 px-8 text-base">
                     Open your library
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -243,7 +245,7 @@ export default function HomePage() {
               <p>
                 On July 8, 2025,{" "}
                 <a
-                  href="https://support.mozilla.org/en-US/kb/future-of-pocket"
+                  href={externalLinks.pocketShutdown}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-denim underline decoration-denim/30 underline-offset-4 transition-colors hover:text-denim-deep hover:decoration-denim"
@@ -303,7 +305,7 @@ export default function HomePage() {
             </p>
             <div className="mt-10">
               <SignedOut>
-                <Link href="/sign-up">
+                <Link href={routes.signUp}>
                   <Button
                     size="lg"
                     className="h-12 px-8 text-base bg-rust hover:bg-rust/90 text-white"
@@ -314,7 +316,7 @@ export default function HomePage() {
                 </Link>
               </SignedOut>
               <SignedIn>
-                <Link href="/app">
+                <Link href={routes.app.root}>
                   <Button
                     size="lg"
                     className="h-12 px-8 text-base bg-rust hover:bg-rust/90 text-white"
@@ -333,7 +335,7 @@ export default function HomePage() {
       <footer className="border-t border-denim/20 py-12">
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href={routes.home} className="flex items-center gap-2">
               <Logo size="md" />
             </Link>
 

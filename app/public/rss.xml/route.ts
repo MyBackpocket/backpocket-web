@@ -1,11 +1,17 @@
 import { headers } from "next/headers";
+import { ROOT_DOMAIN } from "@/lib/config/public";
+import { SPACE_SLUG_HEADER } from "@/lib/constants/headers";
+import {
+  extractCustomDomain,
+  isCustomDomainSlug,
+  PUBLIC_LIST_LIMIT,
+  PUBLIC_RSS_CACHE_SECONDS,
+} from "@/lib/constants/public-space";
 import { createCaller } from "@/lib/trpc/caller";
-
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
 
 export async function GET() {
   const headersList = await headers();
-  const spaceSlug = headersList.get("x-space-slug");
+  const spaceSlug = headersList.get(SPACE_SLUG_HEADER);
 
   if (!spaceSlug) {
     return new Response("Space not found", { status: 404 });
@@ -23,13 +29,13 @@ export async function GET() {
   // Get public saves
   const { items: saves } = await caller.public.listPublicSaves({
     spaceId: space.id,
-    limit: 50,
+    limit: PUBLIC_LIST_LIMIT,
   });
 
   // Determine base URL - use custom domain if present, otherwise subdomain
   let baseUrl: string;
-  if (spaceSlug.startsWith("custom:")) {
-    const customDomain = spaceSlug.slice(7);
+  if (isCustomDomainSlug(spaceSlug)) {
+    const customDomain = extractCustomDomain(spaceSlug);
     baseUrl = `https://${customDomain}`;
   } else {
     baseUrl = `https://${space.slug}.${ROOT_DOMAIN}`;
@@ -65,7 +71,7 @@ export async function GET() {
   return new Response(rss, {
     headers: {
       "Content-Type": "application/rss+xml",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": `public, max-age=${PUBLIC_RSS_CACHE_SECONDS}`,
     },
   });
 }

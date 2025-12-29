@@ -1,16 +1,14 @@
+import { IS_DEVELOPMENT } from "@/lib/config/public";
 import type { Space } from "@/lib/types";
 
-// Check if we're in development mode
-const isDevelopment = process.env.NODE_ENV === "development";
-
 // Check if mock auth mode is enabled (only works in development)
-const isMockAuthMode = isDevelopment && process.env.BACKPOCKET_AUTH_MODE === "mock";
+const isMockAuthMode = IS_DEVELOPMENT && process.env.BACKPOCKET_AUTH_MODE === "mock";
 
 // Check if Clerk is configured
 const isClerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 // Debug logging for auth mode (only in development)
-if (isDevelopment) {
+if (IS_DEVELOPMENT) {
   if (isMockAuthMode) {
     console.log("[auth] 🔧 Mock auth mode enabled (BACKPOCKET_AUTH_MODE=mock)");
   } else if (!isClerkConfigured) {
@@ -59,7 +57,7 @@ export const createContext = async (): Promise<Context> => {
       userId = authResult.userId;
     } catch (e) {
       // Auth failed - fail closed (userId stays null)
-      if (isDevelopment) {
+      if (IS_DEVELOPMENT) {
         console.warn("[auth] Clerk auth failed:", e);
       }
     }

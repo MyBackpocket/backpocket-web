@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
 
@@ -63,7 +64,7 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           <p className="mt-2 text-muted-foreground">
             This save may have been deleted or doesn't exist.
           </p>
-          <Link href="/app/saves" className="mt-6 inline-block">
+          <Link href={routes.app.saves} className="mt-6 inline-block">
             <Button variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to saves
@@ -87,7 +88,7 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
       <div className="mx-auto max-w-3xl">
         {/* Back link */}
         <Link
-          href="/app/saves"
+          href={routes.app.saves}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ArrowLeft className="h-4 w-4" />

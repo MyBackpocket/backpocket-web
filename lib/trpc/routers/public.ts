@@ -1,4 +1,11 @@
 import { z } from "zod/v4";
+import {
+  extractCustomDomain,
+  isCustomDomainSlug,
+  PUBLIC_LIST_DEFAULT_LIMIT,
+  PUBLIC_LIST_MAX_LIMIT,
+  PUBLIC_LIST_MIN_LIMIT,
+} from "@/lib/constants/public-space";
 import { getVisitCount, incrementVisitCount } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { PublicSave } from "@/lib/types";
@@ -17,8 +24,8 @@ export const publicRouter = router({
     .input(z.object({ slug: z.string() }))
     .query(async ({ input }) => {
       // Handle custom domain marker from middleware
-      if (input.slug.startsWith("custom:")) {
-        const customDomain = input.slug.slice(7); // Remove "custom:" prefix
+      if (isCustomDomainSlug(input.slug)) {
+        const customDomain = extractCustomDomain(input.slug);
         return resolveSpaceFromHost(customDomain);
       }
 
@@ -50,7 +57,11 @@ export const publicRouter = router({
       z.object({
         spaceId: z.string(),
         cursor: z.string().optional(),
-        limit: z.number().min(1).max(50).default(20),
+        limit: z
+          .number()
+          .min(PUBLIC_LIST_MIN_LIMIT)
+          .max(PUBLIC_LIST_MAX_LIMIT)
+          .default(PUBLIC_LIST_DEFAULT_LIMIT),
       })
     )
     .query(async ({ input }) => {

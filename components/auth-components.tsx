@@ -4,6 +4,8 @@ import {
   SignedIn as ClerkSignedIn,
   SignedOut as ClerkSignedOut,
   UserButton as ClerkUserButton,
+  useClerk,
+  useUser,
 } from "@clerk/nextjs";
 
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -35,4 +37,47 @@ export function UserButton(props: React.ComponentProps<typeof ClerkUserButton>) 
     );
   }
   return <ClerkUserButton {...props} />;
+}
+
+// Internal component that uses Clerk hooks (only rendered when Clerk is available)
+function ClerkAccountInfo({
+  children,
+}: {
+  children: (props: {
+    user: ReturnType<typeof useUser>["user"];
+    isLoaded: boolean;
+    openUserProfile: () => void;
+  }) => React.ReactNode;
+}) {
+  const { user, isLoaded } = useUser();
+  const { openUserProfile } = useClerk();
+  return <>{children({ user, isLoaded, openUserProfile })}</>;
+}
+
+// Account info component that works with or without Clerk
+export function AccountInfo({
+  children,
+  fallback,
+}: {
+  children: (props: {
+    user: ReturnType<typeof useUser>["user"];
+    isLoaded: boolean;
+    openUserProfile: () => void;
+  }) => React.ReactNode;
+  fallback?: React.ReactNode;
+}) {
+  if (!hasClerk) {
+    // Return fallback or render children with null user
+    if (fallback) return <>{fallback}</>;
+    return (
+      <>
+        {children({
+          user: null,
+          isLoaded: true,
+          openUserProfile: () => console.log("Clerk not configured"),
+        })}
+      </>
+    );
+  }
+  return <ClerkAccountInfo>{children}</ClerkAccountInfo>;
 }

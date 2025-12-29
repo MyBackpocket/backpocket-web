@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import { routes } from "@/lib/constants/routes";
 
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -23,9 +24,9 @@ async function ClerkSignIn() {
         },
       }}
       routing="path"
-      path="/sign-in"
-      signUpUrl="/sign-up"
-      fallbackRedirectUrl="/app"
+      path={routes.signIn}
+      signUpUrl={routes.signUp}
+      fallbackRedirectUrl={routes.app.root}
     />
   );
 }
@@ -39,7 +40,7 @@ export default function SignInPage() {
         <div className="absolute bottom-20 right-1/4 h-64 w-64 rounded-full bg-rust/8 blur-3xl" />
       </div>
 
-      <Link href="/" className="mb-8">
+      <Link href={routes.home} className="mb-8">
         <Logo size="lg" />
       </Link>
 
@@ -48,7 +49,7 @@ export default function SignInPage() {
       ) : (
         <div className="text-center rounded-2xl border border-denim/20 bg-card p-8 shadow-denim-lg">
           <p className="text-muted-foreground mb-4">Clerk authentication is not configured.</p>
-          <Link href="/app">
+          <Link href={routes.app.root}>
             <Button className="bg-rust hover:bg-rust/90 text-white">
               Continue to App (Dev Mode)
             </Button>

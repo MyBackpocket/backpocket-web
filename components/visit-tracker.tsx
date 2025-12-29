@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getVisitedSessionKey } from "@/lib/constants/storage";
 import { trpc } from "@/lib/trpc/client";
 
 interface VisitTrackerProps {
@@ -21,7 +22,7 @@ export function VisitTracker({ spaceId }: VisitTrackerProps) {
     hasTracked.current = true;
 
     // Check sessionStorage to avoid counting page refreshes
-    const sessionKey = `visited:${spaceId}`;
+    const sessionKey = getVisitedSessionKey(spaceId);
     if (typeof window !== "undefined" && sessionStorage.getItem(sessionKey)) {
       return;
     }

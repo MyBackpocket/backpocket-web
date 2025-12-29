@@ -16,18 +16,18 @@ import { useState } from "react";
 import { UserButton } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
 import { QuickAdd } from "@/components/quick-add";
+import { ROOT_DOMAIN } from "@/lib/config/public";
+import { routes } from "@/lib/constants/routes";
+import { buildSpaceHostname, isLocalhostHostname } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/app", icon: LayoutDashboard },
-  { name: "Saves", href: "/app/saves", icon: Bookmark },
-  { name: "Collections", href: "/app/collections", icon: FolderOpen },
-  { name: "Tags", href: "/app/tags", icon: Tags },
-  { name: "Settings", href: "/app/settings", icon: Settings },
+  { name: "Dashboard", href: routes.app.root, icon: LayoutDashboard },
+  { name: "Saves", href: routes.app.saves, icon: Bookmark },
+  { name: "Collections", href: routes.app.collections, icon: FolderOpen },
+  { name: "Tags", href: routes.app.tags, icon: Tags },
 ];
-
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -54,7 +54,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center justify-between border-b border-denim/15 px-4">
-            <Link href="/app" className="flex items-center gap-2">
+            <Link href={routes.app.root} className="flex items-center gap-2">
               <Logo size="md" />
             </Link>
             <button
@@ -75,7 +75,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 space-y-1 px-3">
             {navigation.map((item) => {
               const isActive =
-                pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
+                pathname === item.href ||
+                (item.href !== routes.app.root && pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.name}
@@ -95,6 +96,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
+          {/* Settings - latched to bottom */}
+          <div className="px-3 pb-2">
+            <Link
+              href={routes.app.settings}
+              onClick={() => setMobileNavOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname === routes.app.settings
+                  ? "bg-denim/10 text-denim-deep"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <Settings
+                className={cn("h-5 w-5", pathname === routes.app.settings && "text-rust")}
+              />
+              Settings
+            </Link>
+          </div>
+
           {/* User section */}
           <div className="border-t border-denim/15 p-4">
             <div className="flex items-center gap-3">
@@ -112,12 +132,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 ) : space?.slug ? (
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                      {typeof window !== "undefined" && window.location.hostname === "localhost"
-                        ? `${space.slug}.localhost:3000`
-                        : `${space.slug}.${ROOT_DOMAIN}`}
+                      {buildSpaceHostname({
+                        slug: space.slug,
+                        rootDomain: ROOT_DOMAIN,
+                        isLocalhost:
+                          typeof window !== "undefined" &&
+                          isLocalhostHostname(window.location.hostname),
+                      })}
                     </p>
                     <Link
-                      href="/app/settings"
+                      href={routes.app.settings}
                       className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                       title="Edit space URL"
                     >
@@ -126,7 +150,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </div>
                 ) : (
                   <Link
-                    href="/app/settings"
+                    href={routes.app.settings}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
                   >
                     <span>Set up your space</span>
@@ -150,7 +174,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-6 w-6" />
           </button>
-          <Link href="/app" className="flex items-center gap-2">
+          <Link href={routes.app.root} className="flex items-center gap-2">
             <Logo size="sm" />
           </Link>
           <div className="ml-auto">

@@ -2,6 +2,7 @@
 
 import { Globe } from "lucide-react";
 import { useEffect, useState } from "react";
+import { DEFAULT_ROOT_DOMAIN } from "@/lib/config/public";
 
 const names = ["mario", "jackie", "your-name"];
 const TYPING_SPEED = 120;
@@ -51,7 +52,7 @@ export function TypewriterUrl() {
           {displayText}
           <span className="animate-pulse">|</span>
         </span>
-        <span className="text-muted-foreground">.backpocket.my</span>
+        <span className="text-muted-foreground">.{DEFAULT_ROOT_DOMAIN}</span>
       </code>
     </div>
   );

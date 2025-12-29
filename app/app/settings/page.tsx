@@ -16,11 +16,22 @@ import {
   RefreshCw,
   Sun,
   Trash2,
+  User,
 } from "lucide-react";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useState } from "react";
+import { AccountInfo } from "@/components/auth-components";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,10 +45,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ROOT_DOMAIN } from "@/lib/config/public";
+import { dnsProviderList, vercelDns } from "@/lib/constants/dns";
+import { buildSpaceUrl, isLocalhostHostname } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
 import type { PublicLayout, SpaceVisibility } from "@/lib/types";
-
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -269,20 +281,11 @@ export default function SettingsPage() {
                   Displayed on your public space header
                 </p>
               </div>
-
-              <div className="space-y-2">
-                <Label>Avatar</Label>
-                <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-semibold">
-                    {space?.name?.charAt(0)?.toUpperCase() || "U"}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Avatar is synced from your account
-                  </p>
-                </div>
-              </div>
             </CardContent>
           </Card>
+
+          {/* Account Settings */}
+          <AccountCard />
 
           {/* Subdomain Settings */}
           <Card>
@@ -439,11 +442,13 @@ export default function SettingsPage() {
                         </p>
                       </div>
                       <a
-                        href={
-                          typeof window !== "undefined" && window.location.hostname === "localhost"
-                            ? `http://${slug}.localhost:3000`
-                            : `https://${slug}.${ROOT_DOMAIN}`
-                        }
+                        href={buildSpaceUrl({
+                          slug,
+                          rootDomain: ROOT_DOMAIN,
+                          isLocalhost:
+                            typeof window !== "undefined" &&
+                            isLocalhostHostname(window.location.hostname),
+                        })}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -561,6 +566,117 @@ export default function SettingsPage() {
   );
 }
 
+// Account card component with Clerk integration
+function AccountCard() {
+  return (
+    <AccountInfo
+      fallback={
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Account
+            </CardTitle>
+            <CardDescription>Manage your account settings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Account management is not available in development mode.
+            </p>
+          </CardContent>
+        </Card>
+      }
+    >
+      {({ user, isLoaded, openUserProfile }) => {
+        if (!isLoaded) {
+          return (
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-4 w-48" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-14 w-14 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        }
+
+        if (!user) {
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Account
+                </CardTitle>
+                <CardDescription>Manage your account settings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Account management is not available.
+                </p>
+              </CardContent>
+            </Card>
+          );
+        }
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Account
+              </CardTitle>
+              <CardDescription>Manage your account, profile picture, and security</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {user.imageUrl ? (
+                    <Image
+                      src={user.imageUrl}
+                      alt={user.fullName || "Profile"}
+                      width={56}
+                      height={56}
+                      className="h-14 w-14 rounded-full object-cover ring-2 ring-border"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-semibold ring-2 ring-border">
+                      {user.firstName?.charAt(0)?.toUpperCase() ||
+                        user.emailAddresses?.[0]?.emailAddress?.charAt(0)?.toUpperCase() ||
+                        "U"}
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {user.fullName || user.emailAddresses?.[0]?.emailAddress || "User"}
+                    </p>
+                    {user.fullName && user.emailAddresses?.[0]?.emailAddress && (
+                      <p className="text-sm text-muted-foreground">
+                        {user.emailAddresses[0].emailAddress}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button variant="outline" onClick={() => openUserProfile()}>
+                  Manage Account
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }}
+    </AccountInfo>
+  );
+}
+
 // Theme selector component
 function ThemeSelector() {
   const { theme, setTheme } = useTheme();
@@ -641,6 +757,7 @@ function DomainItem({
   isVerifying: boolean;
   isRemoving: boolean;
 }) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { data: status, refetch } = trpc.space.getDomainStatus.useQuery(
     { domainId: domain.id },
     { refetchInterval: domain.status === "pending_verification" ? 10000 : false }
@@ -650,7 +767,7 @@ function DomainItem({
 
   return (
     <div className="rounded-lg border p-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="font-medium truncate">{domain.domain}</p>
@@ -668,6 +785,13 @@ function DomainItem({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {isActive && (
+            <a href={`https://${domain.domain}`} target="_blank" rel="noopener noreferrer">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <ArrowUpRight className="h-4 w-4" />
+              </Button>
+            </a>
+          )}
           {!isActive && (
             <Button
               variant="ghost"
@@ -689,7 +813,7 @@ function DomainItem({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onRemove}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={isRemoving}
             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
           >
@@ -702,33 +826,127 @@ function DomainItem({
         </div>
       </div>
 
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove custom domain?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{domain.domain}</strong>? You'll need to
+              reconfigure your DNS settings if you want to add it again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onRemove();
+                setShowDeleteConfirm(false);
+              }}
+              disabled={isRemoving}
+            >
+              {isRemoving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Remove Domain
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* DNS Configuration instructions */}
       {!isActive && status?.verification && status.verification.length > 0 && (
         <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">
-            Configure your DNS with the following records:
+            Add these DNS records at your domain registrar or DNS provider:
           </p>
-          <div className="space-y-2 rounded-md bg-muted/50 p-3 text-sm">
-            {status.verification.map((v, i) => (
-              <div key={i} className="grid grid-cols-[80px,1fr,auto] gap-2 items-center">
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{v.type}</span>
-                <span className="font-mono text-xs truncate">{v.value}</span>
-                <CopyButton text={v.value} />
+
+          {/* Step 1: Verification TXT record */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Step 1: Add verification record
+            </p>
+            <div className="space-y-3 rounded-md bg-muted/50 p-3 text-sm">
+              {status.verification.map((v, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="grid grid-cols-[70px,1fr] gap-2 items-center">
+                    <span className="text-xs text-muted-foreground">Type:</span>
+                    <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded w-fit">
+                      {v.type}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[70px,1fr,auto] gap-2 items-center">
+                    <span className="text-xs text-muted-foreground">Name:</span>
+                    <code className="font-mono text-xs truncate">{v.domain}</code>
+                    <CopyButton text={v.domain} />
+                  </div>
+                  <div className="grid grid-cols-[70px,1fr,auto] gap-2 items-center">
+                    <span className="text-xs text-muted-foreground">Value:</span>
+                    <code className="font-mono text-xs truncate">{v.value}</code>
+                    <CopyButton text={v.value} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Step 2: Point domain to backpocket */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Step 2: Point your domain to backpocket
+            </p>
+            <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-3 space-y-2">
+              <div className="space-y-1">
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                  <strong>For subdomains</strong> (e.g., backpocket.yourdomain.com):
+                </p>
+                <div className="flex items-center gap-2 bg-blue-100/50 dark:bg-blue-800/30 rounded px-2 py-1">
+                  <span className="font-mono text-xs">CNAME →</span>
+                  <code className="font-mono text-xs flex-1">{vercelDns.cname}</code>
+                  <CopyButton text={vercelDns.cname} />
+                </div>
               </div>
-            ))}
+              <div className="space-y-1">
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                  <strong>For apex/root domains</strong> (e.g., yourdomain.com):
+                </p>
+                <div className="flex items-center gap-2 bg-blue-100/50 dark:bg-blue-800/30 rounded px-2 py-1">
+                  <span className="font-mono text-xs">A →</span>
+                  <code className="font-mono text-xs flex-1">{vercelDns.aRecord}</code>
+                  <CopyButton text={vercelDns.aRecord} />
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-3">
-            <p className="text-xs text-blue-800 dark:text-blue-300">
-              <strong>For apex domains:</strong> Add an A record pointing to{" "}
-              <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">76.76.21.21</code>
-            </p>
-            <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
-              <strong>For subdomains:</strong> Add a CNAME record pointing to{" "}
-              <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">
-                cname.vercel-dns.com
-              </code>
-            </p>
-          </div>
+
+          {/* DNS Provider help */}
+          <details className="text-xs">
+            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+              Need help? DNS guides for popular providers
+            </summary>
+            <div className="mt-2 space-y-1 pl-3 text-muted-foreground">
+              <p>
+                {dnsProviderList.map((provider, index) => (
+                  <span key={provider.name}>
+                    {index > 0 && " · "}
+                    <a
+                      href={provider.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {provider.name}
+                    </a>
+                  </span>
+                ))}
+              </p>
+              <p className="text-muted-foreground/70">
+                DNS changes can take up to 48 hours to propagate, but usually complete within
+                minutes.
+              </p>
+            </div>
+          </details>
         </div>
       )}
 

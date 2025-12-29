@@ -7,6 +7,8 @@ import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { VisitTracker } from "@/components/visit-tracker";
+import { SPACE_SLUG_HEADER } from "@/lib/constants/headers";
+import { MARKETING_URL } from "@/lib/constants/links";
 import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, getDomainFromUrl } from "@/lib/utils";
@@ -40,7 +42,7 @@ export default async function PublicSavePermalinkPage({
 }) {
   const { saveId } = await params;
   const headersList = await headers();
-  const spaceSlug = headersList.get("x-space-slug");
+  const spaceSlug = headersList.get(SPACE_SLUG_HEADER);
 
   if (!spaceSlug) {
     return (
@@ -176,7 +178,7 @@ export default async function PublicSavePermalinkPage({
         <div className="mx-auto max-w-3xl px-6">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <a
-              href="https://backpocket.my"
+              href={MARKETING_URL}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-rust transition-colors"
             >
               <LogoIcon size="xs" />

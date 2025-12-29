@@ -5,6 +5,9 @@ import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { VisitTracker } from "@/components/visit-tracker";
+import { SPACE_SLUG_HEADER } from "@/lib/constants/headers";
+import { MARKETING_URL } from "@/lib/constants/links";
+import { PUBLIC_LIST_LIMIT } from "@/lib/constants/public-space";
 import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, formatNumber, getDomainFromUrl } from "@/lib/utils";
@@ -24,7 +27,7 @@ async function getSpaceData(
   // Get public saves for this space
   const { items: saves } = await caller.public.listPublicSaves({
     spaceId: space.id,
-    limit: 50,
+    limit: PUBLIC_LIST_LIMIT,
   });
 
   return { space, saves };
@@ -32,7 +35,7 @@ async function getSpaceData(
 
 export default async function PublicSpacePage() {
   const headersList = await headers();
-  const spaceSlug = headersList.get("x-space-slug");
+  const spaceSlug = headersList.get(SPACE_SLUG_HEADER);
 
   // If no slug from middleware, this shouldn't happen but handle gracefully
   if (!spaceSlug) {
@@ -43,7 +46,7 @@ export default async function PublicSpacePage() {
           <h1 className="mt-4 text-2xl font-semibold">Space not found</h1>
           <p className="mt-2 text-muted-foreground">This space doesn&apos;t exist or is private.</p>
           <Link
-            href="https://backpocket.my"
+            href={MARKETING_URL}
             className="mt-6 inline-block text-sm text-rust hover:underline"
           >
             Learn more about backpocket
@@ -66,7 +69,7 @@ export default async function PublicSpacePage() {
           <h1 className="mt-4 text-2xl font-semibold">Space not found</h1>
           <p className="mt-2 text-muted-foreground">This space doesn&apos;t exist or is private.</p>
           <Link
-            href="https://backpocket.my"
+            href={MARKETING_URL}
             className="mt-6 inline-block text-sm text-rust hover:underline"
           >
             Learn more about backpocket
@@ -257,7 +260,7 @@ export default async function PublicSpacePage() {
         <div className="mx-auto max-w-5xl px-6">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <a
-              href="https://backpocket.my"
+              href={MARKETING_URL}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-rust transition-colors"
             >
               <LogoIcon size="xs" />

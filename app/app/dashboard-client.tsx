@@ -7,6 +7,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ROOT_DOMAIN } from "@/lib/config/public";
+import { routes, savesWithFilter } from "@/lib/constants/routes";
+import { buildSpaceHostname, buildSpaceUrl, isLocalhostHostname } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
 import { formatNumber } from "@/lib/utils";
 
@@ -110,7 +113,7 @@ export default function DashboardClient() {
             title="Total Saves"
             value={formatNumber(stats?.totalSaves ?? 0)}
             icon={Bookmark}
-            href="/app/saves"
+            href={routes.app.saves}
           />
           <StatCard
             title="Public Saves"
@@ -121,7 +124,7 @@ export default function DashboardClient() {
             title="Favorites"
             value={formatNumber(stats?.favorites ?? 0)}
             icon={Star}
-            href="/app/saves?filter=favorites"
+            href={savesWithFilter("favorites")}
           />
           <StatCard title="Visitors" value={formatNumber(stats?.visitCount ?? 0)} icon={Eye} />
         </div>
@@ -135,25 +138,25 @@ export default function DashboardClient() {
             <CardTitle className="text-base">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
-            <Link href="/app/saves/new">
+            <Link href={routes.app.savesNew}>
               <Button variant="outline" className="w-full justify-start gap-2">
                 <Plus className="h-4 w-4" />
                 Add a new save
               </Button>
             </Link>
-            <Link href="/app/collections">
+            <Link href={routes.app.collections}>
               <Button variant="outline" className="w-full justify-start gap-2">
                 <FolderOpen className="h-4 w-4" />
                 Manage collections
               </Button>
             </Link>
-            <Link href="/app/tags">
+            <Link href={routes.app.tags}>
               <Button variant="outline" className="w-full justify-start gap-2">
                 <Tags className="h-4 w-4" />
                 Manage tags
               </Button>
             </Link>
-            <Link href="/app/settings">
+            <Link href={routes.app.settings}>
               <Button variant="outline" className="w-full justify-start gap-2">
                 <Globe className="h-4 w-4" />
                 Public space settings
@@ -166,7 +169,7 @@ export default function DashboardClient() {
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Saves</CardTitle>
-            <Link href="/app/saves">
+            <Link href={routes.app.saves}>
               <Button variant="ghost" size="sm">
                 View all
                 <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -181,7 +184,7 @@ export default function DashboardClient() {
                 {recentSaves.map((save) => (
                   <Link
                     key={save.id}
-                    href={`/app/saves/${save.id}`}
+                    href={routes.app.save(save.id)}
                     className="flex items-start gap-4 rounded-lg p-2 transition-colors hover:bg-accent"
                   >
                     {save.imageUrl ? (
@@ -214,7 +217,7 @@ export default function DashboardClient() {
               <div className="py-8 text-center">
                 <Bookmark className="mx-auto h-12 w-12 text-muted-foreground/50" />
                 <p className="mt-4 text-muted-foreground">No saves yet. Add your first link!</p>
-                <Link href="/app/saves/new" className="mt-4 inline-block">
+                <Link href={routes.app.savesNew} className="mt-4 inline-block">
                   <Button>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Save
@@ -233,17 +236,21 @@ export default function DashboardClient() {
             <div>
               <CardTitle className="text-base">Your Public Space</CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                {typeof window !== "undefined" && window.location.hostname === "localhost"
-                  ? `${space.slug}.localhost:3000`
-                  : `${space.slug}.backpocket.my`}
+                {buildSpaceHostname({
+                  slug: space.slug,
+                  rootDomain: ROOT_DOMAIN,
+                  isLocalhost:
+                    typeof window !== "undefined" && isLocalhostHostname(window.location.hostname),
+                })}
               </p>
             </div>
             <a
-              href={
-                typeof window !== "undefined" && window.location.hostname === "localhost"
-                  ? `http://${space.slug}.localhost:3000`
-                  : `https://${space.slug}.backpocket.my`
-              }
+              href={buildSpaceUrl({
+                slug: space.slug,
+                rootDomain: ROOT_DOMAIN,
+                isLocalhost:
+                  typeof window !== "undefined" && isLocalhostHostname(window.location.hostname),
+              })}
               target="_blank"
               rel="noopener noreferrer"
             >

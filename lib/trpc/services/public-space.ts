@@ -1,10 +1,7 @@
+import { APP_DOMAIN, ROOT_DOMAIN } from "@/lib/config/public";
 import { getVisitCount } from "@/lib/redis";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { PublicSpace } from "@/lib/types";
-
-// Domain configuration
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
-const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "backpocket.my";
 
 /**
  * Resolve a space from hostname (subdomain or custom domain).

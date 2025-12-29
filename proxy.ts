@@ -1,14 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-// Primary app domain (marketing + authenticated app)
-const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "backpocket.my";
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
+import { APP_DOMAIN, IS_DEVELOPMENT, ROOT_DOMAIN } from "@/lib/config/public";
+import { SPACE_SLUG_HEADER } from "@/lib/constants/headers";
+import { createCustomDomainSlug } from "@/lib/constants/public-space";
+import { routePatterns } from "@/lib/constants/routes";
 
 // Check if we're in development mode with mock auth
-const isDevelopment = process.env.NODE_ENV === "development";
-const isMockAuthMode = isDevelopment && process.env.BACKPOCKET_AUTH_MODE === "mock";
+const isMockAuthMode = IS_DEVELOPMENT && process.env.BACKPOCKET_AUTH_MODE === "mock";
 
 /**
  * Resolve the Space from the request host.
@@ -56,22 +55,22 @@ function resolveSpaceSlug(host: string): string | null {
   // and let the public space handler resolve them
   if (!hostname.includes(ROOT_DOMAIN) && !hostname.includes("localhost")) {
     // Mark as custom domain resolution needed
-    return `custom:${hostname}`;
+    return createCustomDomainSlug(hostname);
   }
 
   return null;
 }
 
 // Routes that require authentication
-const isProtectedRoute = createRouteMatcher(["/app(.*)"]);
+const isProtectedRoute = createRouteMatcher([routePatterns.app]);
 
 // Routes that are always public (sign-in, sign-up, public spaces)
 const _isPublicRoute = createRouteMatcher([
   "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/public(.*)",
-  "/api/trpc(.*)",
+  routePatterns.signIn,
+  routePatterns.signUp,
+  routePatterns.public,
+  routePatterns.trpc,
 ]);
 
 /**
@@ -97,12 +96,12 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     // Allow API routes to pass through without rewrite
     if (pathname.startsWith("/api/")) {
       const response = NextResponse.next();
-      response.headers.set("x-space-slug", spaceSlug);
+      response.headers.set(SPACE_SLUG_HEADER, spaceSlug);
       return response;
     }
 
     const response = NextResponse.rewrite(new URL(`/public${pathname}`, request.url));
-    response.headers.set("x-space-slug", spaceSlug);
+    response.headers.set(SPACE_SLUG_HEADER, spaceSlug);
     return response;
   }
 

@@ -6,15 +6,17 @@ import { httpBatchLink } from "@trpc/client";
 import { ThemeProvider, useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ROOT_DOMAIN } from "@/lib/config/public";
+import { THEME_COOKIE_NAME } from "@/lib/constants/storage";
+import { TRPC_ENDPOINT } from "@/lib/constants/trpc";
+import { getBaseUrl as getBaseUrlHelper } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
-const THEME_COOKIE_NAME = "bp-theme";
-
 function getBaseUrl() {
-  if (typeof window !== "undefined") return "";
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
+  return getBaseUrlHelper({
+    isBrowser: typeof window !== "undefined",
+    vercelUrl: process.env.VERCEL_URL,
+  });
 }
 
 // Get the root domain for cookie (e.g., ".backpocket.my" for cross-subdomain)
@@ -97,7 +99,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: `${getBaseUrl()}/api/trpc`,
+          url: `${getBaseUrl()}${TRPC_ENDPOINT}`,
         }),
       ],
     })

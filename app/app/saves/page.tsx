@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import type { APISave, SaveVisibility } from "@/lib/types";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
@@ -292,7 +293,7 @@ export default function SavesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Saves</h1>
           <p className="text-muted-foreground">{data?.items?.length ?? 0} saves</p>
         </div>
-        <Link href="/app/saves/new">
+        <Link href={routes.app.savesNew}>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Add Save
@@ -387,7 +388,7 @@ export default function SavesPage() {
               : "Add your first save to get started"}
           </p>
           {!searchQuery && filter === "all" && (
-            <Link href="/app/saves/new" className="mt-6 inline-block">
+            <Link href={routes.app.savesNew} className="mt-6 inline-block">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Save
