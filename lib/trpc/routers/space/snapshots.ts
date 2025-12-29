@@ -95,20 +95,41 @@ export const snapshotsRouter = router({
       };
 
       // If content requested and snapshot is ready, fetch from storage
-      if (input.includeContent && snapshot.status === "ready" && snapshot.storage_path) {
-        try {
-          const { data, error } = await supabaseAdmin.storage
-            .from(SNAPSHOT_STORAGE_BUCKET)
-            .download(snapshot.storage_path);
+      if (input.includeContent && snapshot.status === "ready") {
+        if (!snapshot.storage_path) {
+          console.error("[snapshots] Snapshot is ready but has no storage_path", {
+            saveId: input.saveId,
+          });
+        } else {
+          try {
+            console.log("[snapshots] Downloading content from:", snapshot.storage_path);
+            const { data, error } = await supabaseAdmin.storage
+              .from(SNAPSHOT_STORAGE_BUCKET)
+              .download(snapshot.storage_path);
 
-          if (!error && data) {
-            // Dynamic import to avoid loading node:crypto/node:zlib at module init
-            const { deserializeSnapshot } = await import("@/lib/snapshots");
-            const buffer = Buffer.from(await data.arrayBuffer());
-            result.content = deserializeSnapshot(buffer);
+            if (error) {
+              console.error("[snapshots] Storage download error:", {
+                saveId: input.saveId,
+                path: snapshot.storage_path,
+                error: error.message,
+              });
+            } else if (data) {
+              // Dynamic import to avoid loading node:crypto/node:zlib at module init
+              const { deserializeSnapshot } = await import("@/lib/snapshots");
+              const buffer = Buffer.from(await data.arrayBuffer());
+              result.content = deserializeSnapshot(buffer);
+              console.log("[snapshots] Content loaded successfully", {
+                saveId: input.saveId,
+                contentLength: result.content?.content?.length,
+              });
+            }
+          } catch (err) {
+            console.error("[snapshots] Failed to download/deserialize content:", {
+              saveId: input.saveId,
+              path: snapshot.storage_path,
+              error: err instanceof Error ? err.message : err,
+            });
           }
-        } catch (err) {
-          console.error("[snapshots] Failed to download content:", err);
         }
       }
 

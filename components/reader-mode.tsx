@@ -299,7 +299,7 @@ export function ReaderMode({
     );
   }
 
-  // Ready but no content loaded
+  // Ready but no content loaded (storage issue or content not fetched)
   if (status === "ready") {
     return (
       <Card>
@@ -308,16 +308,40 @@ export function ReaderMode({
             <BookOpen className="h-4 w-4" />
             Reader Mode
           </CardTitle>
-          <Badge variant="secondary" className="gap-1 text-green-600">
-            Available
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1 text-amber-600">
+              <AlertCircle className="h-3 w-3" />
+              Content Missing
+            </Badge>
+            {showRefreshButton && onRefresh && (
+              <Button variant="ghost" size="sm" onClick={onRefresh} disabled={isRefreshing}>
+                {isRefreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border-2 border-dashed p-8 text-center">
-            <BookOpen className="h-8 w-8 mx-auto text-muted-foreground" />
-            <p className="mt-4 text-muted-foreground">
-              Reader mode content is available. Click to view.
+            <AlertCircle className="h-8 w-8 mx-auto text-amber-500" />
+            <p className="mt-4 font-medium text-foreground">Content couldn't be loaded</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              The snapshot exists but the content isn't available. Try refreshing.
             </p>
+            <a
+              href={originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-block"
+            >
+              <Button variant="outline" size="sm" className="gap-2">
+                View Original
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            </a>
           </div>
         </CardContent>
       </Card>
