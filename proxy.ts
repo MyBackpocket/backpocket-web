@@ -65,7 +65,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/trpc(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request: NextRequest) => {
+// Named export for Next.js 16+ proxy convention
+export const proxy = clerkMiddleware(async (auth, request: NextRequest) => {
   const host = request.headers.get("host") || "";
   const spaceSlug = resolveSpaceSlug(host);
 
