@@ -34,6 +34,7 @@ interface FetchedMetadata {
 }
 
 export function QuickAdd() {
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [state, setState] = useState<QuickAddState>("idle");
@@ -42,6 +43,11 @@ export function QuickAdd() {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data: collections } = trpc.space.listCollections.useQuery(undefined, {
     enabled: open,
@@ -166,12 +172,22 @@ export function QuickAdd() {
 
   const selectedCollectionName = collections?.find((c) => c.id === selectedCollection)?.name;
 
+  // Render a static button during SSR to prevent hydration mismatch with Radix UI
+  if (!mounted) {
+    return (
+      <Button className="w-full gap-2" disabled>
+        <Plus className="h-4 w-4" />
+        Quick Add
+      </Button>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="w-full gap-2">
           <Plus className="h-4 w-4" />
-          Add Save
+          Quick Add
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg" onKeyDown={handleKeyDown} aria-describedby={undefined}>

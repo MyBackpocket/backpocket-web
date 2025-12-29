@@ -2,6 +2,7 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,7 +12,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function ThemeSwitcher() {
+  const [mounted, setMounted] = useState(false);
   const { setTheme } = useTheme();
+
+  // Prevent hydration mismatch with Radix UI components
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Render a static button during SSR to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <Button variant="ghost" size="icon" className="h-9 w-9" disabled>
+        <Sun className="h-4 w-4" />
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu>
@@ -42,7 +59,13 @@ export function ThemeSwitcher() {
 
 // Compact version for tight spaces
 export function ThemeSwitcherCompact() {
+  const [mounted, setMounted] = useState(false);
   const { theme, setTheme, resolvedTheme } = useTheme();
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const cycleTheme = () => {
     if (theme === "system") {
@@ -53,6 +76,22 @@ export function ThemeSwitcherCompact() {
       setTheme("system");
     }
   };
+
+  // Render without dynamic title during SSR to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={cycleTheme}
+        className="h-9 w-9"
+        title="Toggle theme"
+      >
+        <Sun className="h-4 w-4" />
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    );
+  }
 
   return (
     <Button

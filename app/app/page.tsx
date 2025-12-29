@@ -1,5 +1,6 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { ArrowUpRight, Bookmark, Eye, FolderOpen, Globe, Plus, Star, Tags } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -40,7 +41,7 @@ function StatCard({
 
 function StatsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
         <Card key={i}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -56,23 +57,52 @@ function StatsSkeleton() {
   );
 }
 
+function RecentSavesSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-4 rounded-lg p-2">
+          <Skeleton className="h-12 w-16 shrink-0 rounded-md" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
-  const { data: stats, isLoading: statsLoading } = trpc.space.getStats.useQuery();
-  const { data: space } = trpc.space.getMySpace.useQuery();
-  const { data: recentSaves } = trpc.space.listSaves.useQuery({ limit: 5 });
+  const { user, isLoaded: userLoaded } = useUser();
+
+  // Single query that fetches all dashboard data at once
+  const { data: dashboardData, isLoading } = trpc.space.getDashboardData.useQuery();
+
+  const stats = dashboardData?.stats;
+  const space = dashboardData?.space;
+  const recentSaves = dashboardData?.recentSaves;
+  const firstName = user?.firstName;
 
   return (
     <div className="p-6 lg:p-8">
       {/* Welcome section */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome back{space?.name ? `, ${space.name.split(" ")[0]}` : ""}
+        <h1 className="text-2xl font-semibold tracking-tight h-8 flex items-center">
+          {!userLoaded ? (
+            <>
+              Welcome back
+              <Skeleton className="ml-2 h-6 w-24 inline-block" />
+            </>
+          ) : (
+            <>Welcome back{firstName ? `, ${firstName}` : ""}</>
+          )}
         </h1>
         <p className="text-muted-foreground">Here's an overview of your collection</p>
       </div>
 
       {/* Stats grid */}
-      {statsLoading ? (
+      {isLoading ? (
         <StatsSkeleton />
       ) : (
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -144,9 +174,11 @@ export default function DashboardPage() {
             </Link>
           </CardHeader>
           <CardContent>
-            {recentSaves?.items && recentSaves.items.length > 0 ? (
+            {isLoading ? (
+              <RecentSavesSkeleton />
+            ) : recentSaves && recentSaves.length > 0 ? (
               <div className="space-y-4">
-                {recentSaves.items.map((save) => (
+                {recentSaves.map((save) => (
                   <Link
                     key={save.id}
                     href={`/app/saves/${save.id}`}

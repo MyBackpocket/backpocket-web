@@ -4,14 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
-import { getPublicSaves, getPublicSpace } from "@/lib/mock-data";
+import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, formatNumber, getDomainFromUrl } from "@/lib/utils";
 
-async function getSpaceData(_slug: string) {
-  // In real implementation, this would query the database
-  const space = getPublicSpace();
-  const saves = getPublicSaves();
-  return { space, saves };
+async function getSpaceData(_slug: string): Promise<{ space: PublicSpace | null; saves: PublicSave[] }> {
+  // TODO: Replace with real database queries
+  return { space: null, saves: [] };
 }
 
 export default async function PublicSpacePage() {

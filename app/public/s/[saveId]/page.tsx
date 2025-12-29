@@ -4,25 +4,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getPublicSpace, mockSaves } from "@/lib/mock-data";
+import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, getDomainFromUrl } from "@/lib/utils";
 
-async function getSaveData(saveId: string) {
-  // In real implementation, this would query the database
-  const save = mockSaves.find(
-    (s) => s.id === saveId && (s.visibility === "public" || s.visibility === "unlisted")
-  );
-  if (!save) return null;
-  return {
-    id: save.id,
-    url: save.url,
-    title: save.title,
-    description: save.description,
-    siteName: save.siteName,
-    imageUrl: save.imageUrl,
-    savedAt: save.savedAt,
-    tags: save.tags?.map((t) => t.name),
-  };
+async function getSaveData(_saveId: string): Promise<PublicSave | null> {
+  // TODO: Replace with real database query
+  return null;
+}
+
+async function getSpaceData(): Promise<PublicSpace | null> {
+  // TODO: Replace with real database query
+  return null;
 }
 
 export default async function PublicSavePermalinkPage({
@@ -34,7 +26,7 @@ export default async function PublicSavePermalinkPage({
   const headersList = await headers();
   const _spaceSlug = headersList.get("x-space-slug") || "mario";
 
-  const space = getPublicSpace();
+  const space = await getSpaceData();
   const save = await getSaveData(saveId);
 
   if (!save) {
@@ -66,7 +58,7 @@ export default async function PublicSavePermalinkPage({
               className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to {space.name}</span>
+              <span>Back to {space?.name || "space"}</span>
             </Link>
             <Link
               href="/rss.xml"

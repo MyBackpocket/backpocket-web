@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 async function ClerkSignIn() {
-  "use server";
   if (!hasClerk) return null;
   const { SignIn } = await import("@clerk/nextjs");
   return (

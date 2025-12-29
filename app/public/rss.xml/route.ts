@@ -1,12 +1,22 @@
 import { headers } from "next/headers";
-import { getPublicSaves, getPublicSpace } from "@/lib/mock-data";
+import type { PublicSave, PublicSpace } from "@/lib/types";
+
+async function getSpaceData(): Promise<PublicSpace | null> {
+  // TODO: Replace with real database query
+  return null;
+}
+
+async function getPublicSaves(): Promise<PublicSave[]> {
+  // TODO: Replace with real database query
+  return [];
+}
 
 export async function GET() {
   const headersList = await headers();
-  const spaceSlug = headersList.get("x-space-slug") || "mario";
+  const spaceSlug = headersList.get("x-space-slug") || "public";
 
-  const space = getPublicSpace();
-  const saves = getPublicSaves();
+  const space = await getSpaceData();
+  const saves = await getPublicSaves();
 
   const baseUrl = `https://${spaceSlug}.backpocket.my`;
 
@@ -27,9 +37,9 @@ export async function GET() {
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${space.name}</title>
+    <title>${space?.name || "backpocket"}</title>
     <link>${baseUrl}</link>
-    <description>${space.bio || `Public saves from ${space.name}`}</description>
+    <description>${space?.bio || "A public collection"}</description>
     <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml"/>

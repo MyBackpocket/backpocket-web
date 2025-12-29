@@ -1,85 +1,12 @@
 export const dynamic = "force-dynamic";
 
-import {
-  ArrowRight,
-  Bookmark,
-  Check,
-  Eye,
-  FolderOpen,
-  Globe,
-  Lock,
-  Rss,
-  Sparkles,
-  Star,
-} from "lucide-react";
+import { ArrowRight, Bookmark, Eye, FolderOpen, Globe, Lock, Rss, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { TypewriterUrl } from "@/components/typewriter-url";
 import { Button } from "@/components/ui/button";
-
-const plans = [
-  {
-    name: "Free",
-    price: "$0",
-    period: "forever",
-    description: "Perfect for getting started with personal bookmarking",
-    features: [
-      "Unlimited private saves",
-      "Up to 100 public saves",
-      "Subdomain (you.backpocket.my)",
-      "Basic themes",
-      "Up to 5 collections",
-      "Browser extension",
-      "Email saving",
-      "RSS feed",
-    ],
-    cta: "Get Started",
-    ctaLink: "/sign-up",
-    popular: false,
-  },
-  {
-    name: "Premium",
-    price: "$6",
-    period: "/month",
-    yearlyPrice: "$60/year",
-    description: "For serious curators who want to share more",
-    features: [
-      "Everything in Free, plus:",
-      "Unlimited public saves",
-      "Custom domains",
-      "All themes + custom CSS",
-      "Unlimited collections",
-      "Advanced search filters",
-      "API access",
-      "Remove 'Powered by' footer",
-      "Priority support",
-    ],
-    cta: "Start Free Trial",
-    ctaLink: "/sign-up",
-    popular: true,
-  },
-  {
-    name: "Business",
-    price: "$15",
-    period: "/month",
-    description: "For teams and organizations (coming soon)",
-    features: [
-      "Everything in Premium, plus:",
-      "Team spaces with roles",
-      "Admin controls",
-      "Higher API limits",
-      "SSO / SCIM (WorkOS)",
-      "Audit logs",
-      "Dedicated support",
-    ],
-    cta: "Coming Soon",
-    ctaLink: "#",
-    popular: false,
-    disabled: true,
-  },
-];
 
 export default function HomePage() {
   return (
@@ -97,12 +24,6 @@ export default function HomePage() {
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Features
-            </a>
-            <a
-              href="#pricing"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Pricing
             </a>
             <ThemeSwitcher />
             <SignedOut>
@@ -311,84 +232,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 md:py-32">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="mb-16 text-center">
-            <h2 className="font-serif text-3xl font-medium tracking-tight md:text-4xl">
-              Simple, honest pricing
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Start free. Upgrade when you need more.
-            </p>
-          </div>
-
-          <div className="grid gap-8 md:grid-cols-3">
-            {plans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative rounded-2xl border bg-card p-8 shadow-denim transition-all ${
-                  plan.popular
-                    ? "border-rust shadow-denim-lg ring-2 ring-rust/30 md:scale-[1.02]"
-                    : "border-denim/20 hover:shadow-denim-lg hover:-translate-y-1"
-                } ${plan.disabled ? "opacity-60" : ""}`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-rust px-4 py-1 text-xs font-medium text-white flex items-center gap-1.5">
-                    <Star className="h-3 w-3 fill-current" />
-                    Most Popular
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold">{plan.name}</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">{plan.period}</span>
-                  </div>
-                  {plan.yearlyPrice && (
-                    <p className="mt-1 text-sm text-mint font-medium">
-                      or {plan.yearlyPrice} (save 17%)
-                    </p>
-                  )}
-                  <p className="mt-3 text-sm text-muted-foreground">{plan.description}</p>
-                </div>
-
-                <ul className="mb-8 space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3">
-                      <Check
-                        className={`mt-0.5 h-5 w-5 shrink-0 ${
-                          plan.popular ? "text-rust" : "text-mint"
-                        }`}
-                      />
-                      <span className="text-sm">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href={plan.disabled ? "#" : plan.ctaLink}>
-                  <Button
-                    className={`w-full ${
-                      plan.popular ? "bg-rust hover:bg-rust/90 text-white" : ""
-                    }`}
-                    variant={plan.popular ? "default" : "outline"}
-                    disabled={plan.disabled}
-                  >
-                    {plan.cta}
-                  </Button>
-                </Link>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-12 text-center text-sm text-muted-foreground">
-            All plans include a 14-day free trial. No credit card required to start. Export your
-            data anytime.
-          </p>
-        </div>
-      </section>
-
       {/* CTA Section - Denim pocket inspired */}
       <section className="py-20 md:py-32">
         <div className="mx-auto max-w-6xl px-6">
@@ -448,9 +291,6 @@ export default function HomePage() {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <a href="#features" className="hover:text-foreground transition-colors">
                 Features
-              </a>
-              <a href="#pricing" className="hover:text-foreground transition-colors">
-                Pricing
               </a>
             </div>
 

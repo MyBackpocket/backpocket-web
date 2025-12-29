@@ -1,5 +1,6 @@
-import type { NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 // Primary app domain (marketing + authenticated app)
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "backpocket.my";
@@ -52,12 +53,23 @@ function resolveSpaceSlug(host: string): string | null {
   return null;
 }
 
-// Create proxy that handles space resolution and auth
-export async function proxy(request: NextRequest) {
+// Routes that require authentication
+const isProtectedRoute = createRouteMatcher(["/app(.*)"]);
+
+// Routes that are always public (sign-in, sign-up, public spaces)
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/public(.*)",
+  "/api/trpc(.*)",
+]);
+
+export default clerkMiddleware(async (auth, request: NextRequest) => {
   const host = request.headers.get("host") || "";
   const spaceSlug = resolveSpaceSlug(host);
 
-  // If we have a space slug, this is a public space request
+  // If we have a space slug, this is a public space request - rewrite to /public
   if (spaceSlug) {
     const response = NextResponse.rewrite(
       new URL(`/public${request.nextUrl.pathname}`, request.url)
@@ -66,23 +78,11 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // For protected routes, use Clerk if available
-  const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-  if (hasClerk && request.nextUrl.pathname.startsWith("/app")) {
-    // Dynamically import and use Clerk middleware
-    const { clerkMiddleware, createRouteMatcher } = await import("@clerk/nextjs/server");
-    const isProtectedRoute = createRouteMatcher(["/app(.*)"]);
-
-    return clerkMiddleware(async (auth, req) => {
-      if (isProtectedRoute(req)) {
-        await auth.protect();
-      }
-    })(request, {} as any);
+  // Protect authenticated routes
+  if (isProtectedRoute(request)) {
+    await auth.protect();
   }
-
-  return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [

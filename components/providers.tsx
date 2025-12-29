@@ -1,6 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { httpBatchLink } from "@trpc/client";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
@@ -14,7 +15,23 @@ function getBaseUrl() {
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            // Data stays fresh for 30 seconds - won't refetch during this time
+            staleTime: 30 * 1000,
+            // Keep unused data in cache for 5 minutes
+            gcTime: 5 * 60 * 1000,
+            // Don't refetch on window focus (reduces unnecessary requests)
+            refetchOnWindowFocus: false,
+            // Retry failed requests once
+            retry: 1,
+          },
+        },
+      })
+  );
   const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
@@ -30,6 +47,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>{children}</TooltipProvider>
+          <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
       </trpc.Provider>
     </ThemeProvider>
