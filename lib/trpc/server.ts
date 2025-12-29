@@ -48,7 +48,8 @@ async function getUserSpace(userId: string): Promise<Space | null> {
     return cached;
   }
 
-  if (DEBUG_CACHE) console.log(`[spaceCache] ❌ MISS for user ${userId.slice(0, 8)}... fetching from DB`);
+  if (DEBUG_CACHE)
+    console.log(`[spaceCache] ❌ MISS for user ${userId.slice(0, 8)}... fetching from DB`);
 
   // Create the promise and cache it immediately (before awaiting)
   const promise = fetchUserSpaceFromDB(userId);
@@ -65,7 +66,7 @@ async function getUserSpace(userId: string): Promise<Space | null> {
 // Actual DB fetch (separated from caching logic)
 async function fetchUserSpaceFromDB(userId: string): Promise<Space | null> {
   const start = DEBUG_CACHE ? performance.now() : 0;
-  
+
   // Single query with join instead of 2 sequential queries
   const { data: membership } = await supabaseAdmin
     .from("memberships")
@@ -75,11 +76,14 @@ async function fetchUserSpaceFromDB(userId: string): Promise<Space | null> {
     .single();
 
   if (!membership || !membership.spaces) {
-    if (DEBUG_CACHE) console.log(`[spaceCache] DB query took ${(performance.now() - start).toFixed(1)}ms (no space found)`);
+    if (DEBUG_CACHE)
+      console.log(
+        `[spaceCache] DB query took ${(performance.now() - start).toFixed(1)}ms (no space found)`
+      );
     return null;
   }
 
-  const space = membership.spaces as {
+  const space = membership.spaces as unknown as {
     id: string;
     type: string;
     slug: string;
@@ -92,11 +96,12 @@ async function fetchUserSpaceFromDB(userId: string): Promise<Space | null> {
     updated_at: string;
   };
 
-  if (DEBUG_CACHE) console.log(`[spaceCache] DB query took ${(performance.now() - start).toFixed(1)}ms`);
+  if (DEBUG_CACHE)
+    console.log(`[spaceCache] DB query took ${(performance.now() - start).toFixed(1)}ms`);
 
   return {
     id: space.id,
-    type: space.type as "personal" | "team",
+    type: space.type as "personal" | "org",
     slug: space.slug,
     name: space.name,
     bio: space.bio,
@@ -1326,11 +1331,13 @@ const spaceRouter = router({
       description: save.description,
       siteName: save.site_name,
       imageUrl: save.image_url,
-      favicon: save.favicon,
+      contentType: save.content_type,
       visibility: save.visibility,
       isArchived: save.is_archived,
       isFavorite: save.is_favorite,
       savedAt: new Date(save.saved_at),
+      createdAt: new Date(save.created_at),
+      updatedAt: new Date(save.updated_at),
       createdBy: save.created_by,
       tags: [],
       collections: [],
