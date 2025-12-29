@@ -5,7 +5,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
 import { SNAPSHOT_STORAGE_BUCKET, SNAPSHOTS_ENABLED } from "@/lib/constants/snapshots";
-import { deserializeSnapshot } from "@/lib/snapshots";
 import {
   checkUserRateLimit,
   enqueueSnapshotJob,
@@ -103,6 +102,8 @@ export const snapshotsRouter = router({
             .download(snapshot.storage_path);
 
           if (!error && data) {
+            // Dynamic import to avoid loading node:crypto/node:zlib at module init
+            const { deserializeSnapshot } = await import("@/lib/snapshots");
             const buffer = Buffer.from(await data.arrayBuffer());
             result.content = deserializeSnapshot(buffer);
           }

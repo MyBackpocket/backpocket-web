@@ -8,7 +8,6 @@ import {
 } from "@/lib/constants/public-space";
 import { SNAPSHOT_STORAGE_BUCKET, SNAPSHOTS_ENABLED } from "@/lib/constants/snapshots";
 import { getVisitCount, incrementVisitCount } from "@/lib/redis";
-import { deserializeSnapshot } from "@/lib/snapshots";
 import { supabaseAdmin } from "@/lib/supabase";
 import type {
   PublicSave,
@@ -253,6 +252,8 @@ export const publicRouter = router({
             .download(snapshot.storage_path);
 
           if (!error && data) {
+            // Dynamic import to avoid loading node:crypto/node:zlib at module init
+            const { deserializeSnapshot } = await import("@/lib/snapshots");
             const buffer = Buffer.from(await data.arrayBuffer());
             result.content = deserializeSnapshot(buffer);
           }
