@@ -1,0 +1,7 @@
+# Cursor Rules for Backpocket Web
+
+## File Naming Conventions
+
+- NEVER rename `proxy.ts` to `middleware.ts` or `@middleware.ts`. The middleware file convention is deprecated in Next.js. Always use `proxy.ts` instead.
+- The `proxy.ts` file is the correct Next.js convention for request middleware/proxy functionality.
+
