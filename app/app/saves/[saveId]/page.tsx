@@ -17,13 +17,33 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use, useCallback, useState } from "react";
 import { ReaderMode } from "@/components/reader-mode";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
@@ -32,8 +52,18 @@ const IS_DEV = process.env.NODE_ENV === "development";
 
 export default function SaveDetailPage({ params }: { params: Promise<{ saveId: string }> }) {
   const { saveId } = use(params);
+  const router = useRouter();
   const { data: save, isLoading } = trpc.space.getSave.useQuery({ saveId });
   const utils = trpc.useUtils();
+
+  // Dialog states
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    visibility: "private" as "private" | "public" | "unlisted",
+  });
 
   // Query snapshot data with content
   const { data: snapshotData, isLoading: isSnapshotLoading } = trpc.space.getSaveSnapshot.useQuery(
@@ -42,16 +72,99 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
   );
 
   const toggleFavorite = trpc.space.toggleFavorite.useMutation({
-    onSuccess: () => {
+    onMutate: async ({ saveId: id }) => {
+      // Cancel outgoing refetches
+      await utils.space.getSave.cancel({ saveId: id });
+
+      // Snapshot previous value
+      const previousSave = utils.space.getSave.getData({ saveId: id });
+
+      // Optimistically update
+      if (previousSave) {
+        utils.space.getSave.setData({ saveId: id }, {
+          ...previousSave,
+          isFavorite: !previousSave.isFavorite,
+        });
+      }
+
+      return { previousSave };
+    },
+    onError: (_err, { saveId: id }, context) => {
+      // Roll back on error
+      if (context?.previousSave) {
+        utils.space.getSave.setData({ saveId: id }, context.previousSave);
+      }
+    },
+    onSettled: () => {
       utils.space.getSave.invalidate({ saveId });
     },
   });
 
   const toggleArchive = trpc.space.toggleArchive.useMutation({
-    onSuccess: () => {
+    onMutate: async ({ saveId: id }) => {
+      // Cancel outgoing refetches
+      await utils.space.getSave.cancel({ saveId: id });
+
+      // Snapshot previous value
+      const previousSave = utils.space.getSave.getData({ saveId: id });
+
+      // Optimistically update
+      if (previousSave) {
+        utils.space.getSave.setData({ saveId: id }, {
+          ...previousSave,
+          isArchived: !previousSave.isArchived,
+        });
+      }
+
+      return { previousSave };
+    },
+    onError: (_err, { saveId: id }, context) => {
+      // Roll back on error
+      if (context?.previousSave) {
+        utils.space.getSave.setData({ saveId: id }, context.previousSave);
+      }
+    },
+    onSettled: () => {
       utils.space.getSave.invalidate({ saveId });
     },
   });
+
+  const deleteSave = trpc.space.deleteSave.useMutation({
+    onSuccess: () => {
+      router.push(routes.app.saves);
+    },
+  });
+
+  const updateSave = trpc.space.updateSave.useMutation({
+    onSuccess: () => {
+      utils.space.getSave.invalidate({ saveId });
+      setShowEditDialog(false);
+    },
+  });
+
+  const handleOpenEditDialog = useCallback(() => {
+    if (save) {
+      setEditForm({
+        title: save.title || "",
+        description: save.description || "",
+        visibility: save.visibility,
+      });
+      setShowEditDialog(true);
+    }
+  }, [save]);
+
+  const handleSaveEdit = useCallback(() => {
+    updateSave.mutate({
+      id: saveId,
+      title: editForm.title || undefined,
+      description: editForm.description || undefined,
+      visibility: editForm.visibility,
+    });
+  }, [saveId, editForm, updateSave]);
+
+  const handleConfirmDelete = useCallback(() => {
+    deleteSave.mutate({ saveId });
+  }, [saveId, deleteSave]);
 
   const requestSnapshot = trpc.space.requestSaveSnapshot.useMutation({
     onSuccess: () => {
@@ -176,22 +289,36 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => toggleFavorite.mutate({ saveId: save.id })}
-              className={cn(save.isFavorite && "text-yellow-500")}
-            >
-              <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => toggleArchive.mutate({ saveId: save.id })}
-              className={cn(save.isArchived && "text-primary")}
-            >
-              <Archive className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => toggleFavorite.mutate({ saveId: save.id })}
+                  className={cn(save.isFavorite && "text-yellow-500")}
+                >
+                  <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {save.isFavorite ? "Remove from favorites" : "Add to favorites"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => toggleArchive.mutate({ saveId: save.id })}
+                  className={cn(save.isArchived && "text-primary")}
+                >
+                  <Archive className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {save.isArchived ? "Unarchive" : "Archive"}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
@@ -328,15 +455,129 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
         <Separator className="my-8" />
 
         <div className="flex items-center justify-between">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </Button>
-          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteDialog(true)}
+          >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
           </Button>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete this save?</DialogTitle>
+              <DialogDescription>
+                This will permanently delete "{save.title || save.url}". This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={deleteSave.isPending}
+              >
+                {deleteSave.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit save</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Enter a title..."
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Add a description..."
+                  rows={3}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="visibility">Visibility</Label>
+                <Select
+                  value={editForm.visibility}
+                  onValueChange={(value: "private" | "public" | "unlisted") =>
+                    setEditForm((prev) => ({ ...prev, visibility: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">
+                      <span className="flex items-center gap-2">
+                        <EyeOff className="h-4 w-4" />
+                        Private
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="public">
+                      <span className="flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        Public
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="unlisted">
+                      <span className="flex items-center gap-2">
+                        <Link2 className="h-4 w-4" />
+                        Unlisted
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={updateSave.isPending}>
+                {updateSave.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
