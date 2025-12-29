@@ -87,6 +87,31 @@ Built as a spiritual successor to Mozilla's Pocket after its shutdown in 2025.
 
    Open [http://localhost:3000](http://localhost:3000) to see the app.
 
+## Development Auth / Mock Mode
+
+For local development without Clerk configured, you can enable **mock auth mode**:
+
+```env
+# Add to .env.local
+BACKPOCKET_AUTH_MODE=mock
+```
+
+### What it does
+
+- Sets `userId` to `"mock-user-dev"` for all tRPC requests
+- Bypasses Clerk middleware protection for `/app/*` routes
+- Allows full app functionality without a Clerk account
+
+### Security
+
+- **Only works when `NODE_ENV=development`** — has no effect in production
+- In production, if Clerk is not configured, all protected routes will return `UNAUTHORIZED` (fail closed)
+- Never commit `BACKPOCKET_AUTH_MODE=mock` to production environment variables
+
+### Data warning
+
+Mock mode uses the real Supabase database via the service role key. Any saves, collections, or tags you create will be stored as real data under the `mock-user-dev` user ID.
+
 ## Scripts
 
 | Command        | Description              |

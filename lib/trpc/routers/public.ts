@@ -1,0 +1,164 @@
+import { z } from "zod/v4";
+import { getVisitCount, incrementVisitCount } from "@/lib/redis";
+import { supabaseAdmin } from "@/lib/supabase";
+import type { PublicSave } from "@/lib/types";
+import { resolveSpaceFromHost } from "../services/public-space";
+import { publicProcedure, router } from "../trpc";
+
+export const publicRouter = router({
+  resolveSpaceByHost: publicProcedure
+    .input(z.object({ host: z.string() }))
+    .query(async ({ input }) => {
+      return resolveSpaceFromHost(input.host);
+    }),
+
+  // Resolve space by slug directly (for when we already have the slug from middleware)
+  resolveSpaceBySlug: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ input }) => {
+      // Handle custom domain marker from middleware
+      if (input.slug.startsWith("custom:")) {
+        const customDomain = input.slug.slice(7); // Remove "custom:" prefix
+        return resolveSpaceFromHost(customDomain);
+      }
+
+      // Regular slug lookup
+      const { data: space } = await supabaseAdmin
+        .from("spaces")
+        .select("*")
+        .eq("slug", input.slug)
+        .eq("visibility", "public")
+        .single();
+
+      if (!space) return null;
+
+      const visitCount = await getVisitCount(space.id);
+
+      return {
+        id: space.id,
+        slug: space.slug,
+        name: space.name,
+        bio: space.bio,
+        avatarUrl: space.avatar_url,
+        publicLayout: space.public_layout as "list" | "grid",
+        visitCount,
+      };
+    }),
+
+  listPublicSaves: publicProcedure
+    .input(
+      z.object({
+        spaceId: z.string(),
+        cursor: z.string().optional(),
+        limit: z.number().min(1).max(50).default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      let query = supabaseAdmin
+        .from("saves")
+        .select("*")
+        .eq("space_id", input.spaceId)
+        .in("visibility", ["public", "unlisted"])
+        .eq("is_archived", false)
+        .order("saved_at", { ascending: false })
+        .limit(input.limit + 1);
+
+      if (input.cursor) {
+        query = query.lt("saved_at", input.cursor);
+      }
+
+      const { data: saves } = await query;
+
+      if (!saves) {
+        return { items: [], nextCursor: null };
+      }
+
+      // Get tags for all saves
+      const saveIds = saves.slice(0, input.limit).map((s) => s.id);
+      const { data: saveTags } = await supabaseAdmin
+        .from("save_tags")
+        .select("save_id, tags(id, name)")
+        .in("save_id", saveIds);
+
+      const tagsByaSaveId = new Map<string, string[]>();
+      for (const st of saveTags || []) {
+        const tags = tagsByaSaveId.get(st.save_id) || [];
+        if (st.tags && typeof st.tags === "object" && "name" in st.tags) {
+          tags.push((st.tags as { name: string }).name);
+        }
+        tagsByaSaveId.set(st.save_id, tags);
+      }
+
+      const items: PublicSave[] = saves.slice(0, input.limit).map((save) => ({
+        id: save.id,
+        url: save.url,
+        title: save.title,
+        description: save.description,
+        siteName: save.site_name,
+        imageUrl: save.image_url,
+        savedAt: new Date(save.saved_at),
+        tags: tagsByaSaveId.get(save.id),
+      }));
+
+      const hasMore = saves.length > input.limit;
+      const nextCursor = hasMore ? saves[input.limit - 1].saved_at : null;
+
+      return { items, nextCursor };
+    }),
+
+  getPublicSave: publicProcedure
+    .input(z.object({ spaceId: z.string(), saveId: z.string() }))
+    .query(async ({ input }) => {
+      const { data: save } = await supabaseAdmin
+        .from("saves")
+        .select("*")
+        .eq("id", input.saveId)
+        .eq("space_id", input.spaceId)
+        .in("visibility", ["public", "unlisted"])
+        .single();
+
+      if (!save) return null;
+
+      // Get tags
+      const { data: saveTags } = await supabaseAdmin
+        .from("save_tags")
+        .select("tags(name)")
+        .eq("save_id", save.id);
+
+      const tags = saveTags
+        ?.map((st) =>
+          st.tags && typeof st.tags === "object" && "name" in st.tags
+            ? (st.tags as { name: string }).name
+            : null
+        )
+        .filter(Boolean) as string[];
+
+      return {
+        id: save.id,
+        url: save.url,
+        title: save.title,
+        description: save.description,
+        siteName: save.site_name,
+        imageUrl: save.image_url,
+        savedAt: new Date(save.saved_at),
+        tags,
+      };
+    }),
+
+  registerVisit: publicProcedure
+    .input(z.object({ spaceId: z.string(), path: z.string() }))
+    .mutation(async ({ input }) => {
+      await incrementVisitCount(input.spaceId);
+      return { ok: true };
+    }),
+
+  getVisitCount: publicProcedure
+    .input(z.object({ spaceId: z.string() }))
+    .query(async ({ input }) => {
+      const total = await getVisitCount(input.spaceId);
+      return {
+        total,
+        asOf: new Date().toISOString(),
+      };
+    }),
+});

@@ -1,24 +1,39 @@
 import { headers } from "next/headers";
-import type { PublicSave, PublicSpace } from "@/lib/types";
+import { createCaller } from "@/lib/trpc/caller";
 
-async function getSpaceData(): Promise<PublicSpace | null> {
-  // TODO: Replace with real database query
-  return null;
-}
-
-async function getPublicSaves(): Promise<PublicSave[]> {
-  // TODO: Replace with real database query
-  return [];
-}
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
 
 export async function GET() {
   const headersList = await headers();
-  const spaceSlug = headersList.get("x-space-slug") || "public";
+  const spaceSlug = headersList.get("x-space-slug");
 
-  const space = await getSpaceData();
-  const saves = await getPublicSaves();
+  if (!spaceSlug) {
+    return new Response("Space not found", { status: 404 });
+  }
 
-  const baseUrl = `https://${spaceSlug}.backpocket.my`;
+  const caller = await createCaller();
+
+  // Resolve space by slug (handles both regular slugs and custom:domain format)
+  const space = await caller.public.resolveSpaceBySlug({ slug: spaceSlug });
+
+  if (!space) {
+    return new Response("Space not found", { status: 404 });
+  }
+
+  // Get public saves
+  const { items: saves } = await caller.public.listPublicSaves({
+    spaceId: space.id,
+    limit: 50,
+  });
+
+  // Determine base URL - use custom domain if present, otherwise subdomain
+  let baseUrl: string;
+  if (spaceSlug.startsWith("custom:")) {
+    const customDomain = spaceSlug.slice(7);
+    baseUrl = `https://${customDomain}`;
+  } else {
+    baseUrl = `https://${space.slug}.${ROOT_DOMAIN}`;
+  }
 
   const rssItems = saves
     .map(
@@ -37,9 +52,9 @@ export async function GET() {
   const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${space?.name || "backpocket"}</title>
+    <title>${space.name}</title>
     <link>${baseUrl}</link>
-    <description>${space?.bio || "A public collection"}</description>
+    <description>${space.bio || "A public collection"}</description>
     <language>en</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml"/>

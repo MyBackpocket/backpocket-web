@@ -4,17 +4,30 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, getDomainFromUrl } from "@/lib/utils";
 
-async function getSaveData(_saveId: string): Promise<PublicSave | null> {
-  // TODO: Replace with real database query
-  return null;
-}
+async function getSaveData(
+  spaceSlug: string,
+  saveId: string
+): Promise<{ space: PublicSpace | null; save: PublicSave | null }> {
+  const caller = await createCaller();
 
-async function getSpaceData(): Promise<PublicSpace | null> {
-  // TODO: Replace with real database query
-  return null;
+  // Resolve space by slug (handles both regular slugs and custom:domain format)
+  const space = await caller.public.resolveSpaceBySlug({ slug: spaceSlug });
+
+  if (!space) {
+    return { space: null, save: null };
+  }
+
+  // Get the specific save
+  const save = await caller.public.getPublicSave({
+    spaceId: space.id,
+    saveId,
+  });
+
+  return { space, save };
 }
 
 export default async function PublicSavePermalinkPage({
@@ -24,10 +37,27 @@ export default async function PublicSavePermalinkPage({
 }) {
   const { saveId } = await params;
   const headersList = await headers();
-  const _spaceSlug = headersList.get("x-space-slug") || "mario";
+  const spaceSlug = headersList.get("x-space-slug");
 
-  const space = await getSpaceData();
-  const save = await getSaveData(saveId);
+  if (!spaceSlug) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-warm">
+        <div className="text-center">
+          <Bookmark className="mx-auto h-16 w-16 text-muted-foreground/50" />
+          <h1 className="mt-4 text-2xl font-semibold">Save not found</h1>
+          <p className="mt-2 text-muted-foreground">This save doesn't exist or is private.</p>
+          <Link href="/" className="mt-6 inline-block">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to space
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { space, save } = await getSaveData(spaceSlug, saveId);
 
   if (!save) {
     return (

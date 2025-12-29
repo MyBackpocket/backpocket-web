@@ -4,24 +4,58 @@ import Image from "next/image";
 import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
+import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, formatNumber, getDomainFromUrl } from "@/lib/utils";
 
 async function getSpaceData(
-  _slug: string
+  slug: string
 ): Promise<{ space: PublicSpace | null; saves: PublicSave[] }> {
-  // TODO: Replace with real database queries
-  return { space: null, saves: [] };
+  const caller = await createCaller();
+
+  // Resolve space by slug (handles both regular slugs and custom:domain format)
+  const space = await caller.public.resolveSpaceBySlug({ slug });
+
+  if (!space) {
+    return { space: null, saves: [] };
+  }
+
+  // Get public saves for this space
+  const { items: saves } = await caller.public.listPublicSaves({
+    spaceId: space.id,
+    limit: 50,
+  });
+
+  return { space, saves };
 }
 
 export default async function PublicSpacePage() {
   const headersList = await headers();
   const spaceSlug = headersList.get("x-space-slug");
 
+  // If no slug from middleware, this shouldn't happen but handle gracefully
+  if (!spaceSlug) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-denim">
+        <div className="text-center">
+          <LogoIcon size="xl" className="mx-auto opacity-50" />
+          <h1 className="mt-4 text-2xl font-semibold">Space not found</h1>
+          <p className="mt-2 text-muted-foreground">This space doesn&apos;t exist or is private.</p>
+          <Link
+            href="https://backpocket.my"
+            className="mt-6 inline-block text-sm text-rust hover:underline"
+          >
+            Learn more about backpocket
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // If accessed via subdomain, use root-relative paths; otherwise use /public prefix
   const basePath = spaceSlug ? "" : "/public";
 
-  const { space, saves } = await getSpaceData(spaceSlug || "mario");
+  const { space, saves } = await getSpaceData(spaceSlug);
 
   if (!space) {
     return (

@@ -1,6 +1,15 @@
 "use client";
 
-import { Bookmark, FolderOpen, LayoutDashboard, Menu, Settings, Tags, X } from "lucide-react";
+import {
+  Bookmark,
+  FolderOpen,
+  LayoutDashboard,
+  Menu,
+  Pencil,
+  Settings,
+  Tags,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +17,7 @@ import { UserButton } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
 import { QuickAdd } from "@/components/quick-add";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -18,9 +28,12 @@ const navigation = [
   { name: "Settings", href: "/app/settings", icon: Settings },
 ];
 
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { data: space, isLoading: spaceLoading } = trpc.space.getMySpace.useQuery();
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,9 +106,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   },
                 }}
               />
-              <div className="flex-1 truncate">
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">Your Space</p>
-                <p className="text-xs text-muted-foreground truncate">yourname.backpocket.my</p>
+                {spaceLoading ? (
+                  <p className="text-xs text-muted-foreground truncate">Loading...</p>
+                ) : space?.slug ? (
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                      {typeof window !== "undefined" && window.location.hostname === "localhost"
+                        ? `${space.slug}.localhost:3000`
+                        : `${space.slug}.${ROOT_DOMAIN}`}
+                    </p>
+                    <Link
+                      href="/app/settings"
+                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      title="Edit space URL"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Link>
+                  </div>
+                ) : (
+                  <Link
+                    href="/app/settings"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  >
+                    <span>Set up your space</span>
+                    <Pencil className="h-3 w-3" />
+                  </Link>
+                )}
               </div>
               <ThemeSwitcher />
             </div>

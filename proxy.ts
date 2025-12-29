@@ -6,6 +6,10 @@ import { NextResponse } from "next/server";
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "backpocket.my";
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "backpocket.my";
 
+// Check if we're in development mode with mock auth
+const isDevelopment = process.env.NODE_ENV === "development";
+const isMockAuthMode = isDevelopment && process.env.BACKPOCKET_AUTH_MODE === "mock";
+
 /**
  * Resolve the Space from the request host.
  * Returns null if this is the primary app domain.
@@ -70,6 +74,17 @@ const _isPublicRoute = createRouteMatcher([
   "/api/trpc(.*)",
 ]);
 
+/**
+ * Middleware handler.
+ *
+ * In development with BACKPOCKET_AUTH_MODE=mock:
+ * - Protected routes are accessible without Clerk authentication
+ * - tRPC context will use "mock-user-dev" as userId
+ *
+ * In production (or dev without mock mode):
+ * - Protected routes require Clerk authentication
+ * - Missing/invalid auth returns redirect to sign-in
+ */
 export default clerkMiddleware(async (auth, request: NextRequest) => {
   const host = request.headers.get("host") || "";
   const spaceSlug = resolveSpaceSlug(host);
@@ -83,7 +98,14 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     return response;
   }
 
-  // Protect authenticated routes
+  // In mock auth mode (dev only), skip Clerk protection
+  // The tRPC context will handle setting userId to "mock-user-dev"
+  if (isMockAuthMode && isProtectedRoute(request)) {
+    // Allow access without Clerk - let the request through
+    return NextResponse.next();
+  }
+
+  // Protect authenticated routes (production behavior)
   if (isProtectedRoute(request)) {
     await auth.protect();
   }

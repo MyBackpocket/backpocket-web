@@ -232,10 +232,18 @@ export default function DashboardClient() {
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Your Public Space</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">{space.slug}.backpocket.my</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {typeof window !== "undefined" && window.location.hostname === "localhost"
+                  ? `${space.slug}.localhost:3000`
+                  : `${space.slug}.backpocket.my`}
+              </p>
             </div>
             <a
-              href={`https://${space.slug}.backpocket.my`}
+              href={
+                typeof window !== "undefined" && window.location.hostname === "localhost"
+                  ? `http://${space.slug}.localhost:3000`
+                  : `https://${space.slug}.backpocket.my`
+              }
               target="_blank"
               rel="noopener noreferrer"
             >
