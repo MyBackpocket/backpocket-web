@@ -319,9 +319,17 @@ export const savesRouter = router({
         });
 
         // Enqueue the snapshot job (fire and forget - don't block save creation)
-        enqueueSnapshotJob(save.id, space.id, input.url).catch((err) => {
-          console.error("[saves] Failed to enqueue snapshot job:", err);
-        });
+        enqueueSnapshotJob(save.id, space.id, input.url)
+          .then((result) => {
+            if (result.ok) {
+              console.log(`[saves] Snapshot job enqueued: messageId=${result.messageId}`);
+            } else {
+              console.error(`[saves] Failed to enqueue snapshot job: ${result.error}`);
+            }
+          })
+          .catch((err) => {
+            console.error("[saves] Snapshot job threw exception:", err);
+          });
       }
 
       return transformSave(save, tags, collections);

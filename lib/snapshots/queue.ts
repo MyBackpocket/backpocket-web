@@ -3,9 +3,13 @@
  *
  * QStash provides reliable message delivery with automatic retries,
  * making it ideal for serverless snapshot processing.
+ *
+ * In development, jobs are processed directly since QStash cannot
+ * reach localhost.
  */
 
 import { Client } from "@upstash/qstash";
+import { IS_DEVELOPMENT } from "@/lib/config/public";
 import {
   SNAPSHOT_DOMAIN_POLITENESS_MS,
   SNAPSHOT_MAX_ATTEMPTS,
@@ -53,6 +57,10 @@ export interface EnqueueResult {
 
 /**
  * Enqueue a snapshot job for processing
+ *
+ * In development mode, processes the snapshot directly since QStash
+ * cannot reach localhost. In production, uses QStash for reliable
+ * background processing.
  */
 export async function enqueueSnapshotJob(
   saveId: string,
@@ -63,14 +71,39 @@ export async function enqueueSnapshotJob(
     return { ok: false, error: "Snapshots are disabled" };
   }
 
+  // In development, process directly since QStash can't reach localhost
+  if (IS_DEVELOPMENT) {
+    console.log(`[snapshots] Dev mode: processing snapshot directly for save=${saveId}`);
+    // Process asynchronously but don't await - fire and forget
+    processSnapshotInDev(saveId, spaceId, url);
+    return { ok: true, messageId: `dev-${saveId}` };
+  }
+
+  // Debug logging for production
+  console.log(`[snapshots] Enqueuing job for save=${saveId}`, {
+    hasQstashToken: !!process.env.QSTASH_TOKEN,
+    hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
+    hasVercelUrl: !!process.env.VERCEL_URL,
+    nodeEnv: process.env.NODE_ENV,
+  });
+
   const qstash = getQStashClient();
   if (!qstash) {
+    console.error("[snapshots] QStash client not available - QSTASH_TOKEN missing");
     return { ok: false, error: "QStash not configured" };
   }
 
+  let workerUrl: string;
   try {
-    const workerUrl = getWorkerUrl();
+    workerUrl = getWorkerUrl();
+    console.log(`[snapshots] Worker URL: ${workerUrl}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("[snapshots] Failed to get worker URL:", message);
+    return { ok: false, error: message };
+  }
 
+  try {
     const result = await qstash.publishJSON({
       url: workerUrl,
       body: {
@@ -85,10 +118,11 @@ export async function enqueueSnapshotJob(
       delay: Math.floor(Math.random() * 5), // 0-5 seconds random delay
     });
 
+    console.log(`[snapshots] Successfully enqueued job: messageId=${result.messageId}`);
     return { ok: true, messageId: result.messageId };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[snapshots] Failed to enqueue job:", message);
+    console.error("[snapshots] Failed to publish to QStash:", message, error);
     return { ok: false, error: message };
   }
 }
@@ -274,4 +308,126 @@ export function verifyWorkerSecret(secret: string | null): boolean {
     return false;
   }
   return secret === expectedSecret;
+}
+
+/**
+ * Process a snapshot directly in development mode.
+ * This bypasses QStash since it cannot reach localhost.
+ */
+async function processSnapshotInDev(saveId: string, spaceId: string, url: string): Promise<void> {
+  // Delay import to avoid circular dependencies
+  const { SNAPSHOT_STORAGE_BUCKET } = await import("@/lib/constants/snapshots");
+  const { getSnapshotStoragePath, processSnapshot, serializeSnapshot } = await import(
+    "@/lib/snapshots"
+  );
+  const { supabaseAdmin } = await import("@/lib/supabase");
+
+  try {
+    console.log(`[snapshots-dev] Processing save=${saveId} url=${url}`);
+
+    // Update status to processing
+    await supabaseAdmin
+      .from("save_snapshots")
+      .update({ status: "processing", attempts: 1 })
+      .eq("save_id", saveId);
+
+    // Process the snapshot
+    const result = await processSnapshot(url);
+
+    if (!result.ok) {
+      const finalStatus = result.reason === "noarchive" ? "blocked" : "failed";
+      await supabaseAdmin
+        .from("save_snapshots")
+        .update({
+          status: finalStatus,
+          blocked_reason: result.reason,
+          error_message: result.message,
+        })
+        .eq("save_id", saveId);
+      console.log(`[snapshots-dev] Failed: ${result.reason} - ${result.message}`);
+      return;
+    }
+
+    // Store the snapshot content
+    const storagePath = getSnapshotStoragePath(spaceId, saveId);
+    const serialized = serializeSnapshot(result.content);
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(SNAPSHOT_STORAGE_BUCKET)
+      .upload(storagePath, serialized, {
+        contentType: "application/gzip",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("[snapshots-dev] Storage upload failed:", uploadError);
+      await supabaseAdmin
+        .from("save_snapshots")
+        .update({
+          status: "failed",
+          blocked_reason: "fetch_error",
+          error_message: `Storage upload failed: ${uploadError.message}`,
+        })
+        .eq("save_id", saveId);
+      return;
+    }
+
+    // Update snapshot record with success
+    await supabaseAdmin
+      .from("save_snapshots")
+      .update({
+        status: "ready",
+        fetched_at: new Date().toISOString(),
+        storage_path: storagePath,
+        canonical_url: result.metadata.canonicalUrl,
+        title: result.metadata.title,
+        byline: result.metadata.byline,
+        excerpt: result.metadata.excerpt,
+        word_count: result.metadata.wordCount,
+        language: result.metadata.language,
+        content_sha256: result.metadata.contentSha256,
+        error_message: null,
+        blocked_reason: null,
+      })
+      .eq("save_id", saveId);
+
+    // Backfill save metadata if missing
+    const { data: save } = await supabaseAdmin
+      .from("saves")
+      .select("title, site_name, image_url, description")
+      .eq("id", saveId)
+      .single();
+
+    if (save) {
+      const updates: Record<string, unknown> = {};
+      if (!save.title && result.metadata.title) updates.title = result.metadata.title;
+      if (!save.site_name && result.metadata.siteName) updates.site_name = result.metadata.siteName;
+      if (!save.image_url && result.metadata.imageUrl) updates.image_url = result.metadata.imageUrl;
+      if (!save.description && result.metadata.excerpt)
+        updates.description = result.metadata.excerpt;
+
+      if (Object.keys(updates).length > 0) {
+        await supabaseAdmin.from("saves").update(updates).eq("id", saveId);
+      }
+    }
+
+    console.log(`[snapshots-dev] Success: save=${saveId} words=${result.metadata.wordCount}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[snapshots-dev] Unexpected error: ${message}`);
+
+    try {
+      const { supabaseAdmin } = await import("@/lib/supabase");
+      await supabaseAdmin
+        .from("save_snapshots")
+        .update({
+          status: "failed",
+          blocked_reason: "fetch_error",
+          error_message: message,
+        })
+        .eq("save_id", saveId);
+    } catch {
+      // Ignore update error
+    }
+  }
 }
