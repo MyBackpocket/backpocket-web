@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 // Primary app domain (marketing + authenticated app)
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || "backpocket.my";
@@ -22,6 +22,11 @@ function resolveSpaceSlug(host: string): string | null {
 
   // For localhost (no subdomain), also skip
   if (hostname === "localhost") {
+    return null;
+  }
+
+  // For Vercel preview deployments, skip subdomain resolution
+  if (hostname.endsWith(".vercel.app")) {
     return null;
   }
 
@@ -65,8 +70,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/trpc(.*)",
 ]);
 
-// Named export for Next.js 16+ proxy convention
-export const proxy = clerkMiddleware(async (auth, request: NextRequest) => {
+export default clerkMiddleware(async (auth, request: NextRequest) => {
   const host = request.headers.get("host") || "";
   const spaceSlug = resolveSpaceSlug(host);
 
