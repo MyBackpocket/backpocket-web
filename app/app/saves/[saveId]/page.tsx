@@ -81,10 +81,13 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
 
       // Optimistically update
       if (previousSave) {
-        utils.space.getSave.setData({ saveId: id }, {
-          ...previousSave,
-          isFavorite: !previousSave.isFavorite,
-        });
+        utils.space.getSave.setData(
+          { saveId: id },
+          {
+            ...previousSave,
+            isFavorite: !previousSave.isFavorite,
+          }
+        );
       }
 
       return { previousSave };
@@ -110,10 +113,13 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
 
       // Optimistically update
       if (previousSave) {
-        utils.space.getSave.setData({ saveId: id }, {
-          ...previousSave,
-          isArchived: !previousSave.isArchived,
-        });
+        utils.space.getSave.setData(
+          { saveId: id },
+          {
+            ...previousSave,
+            isArchived: !previousSave.isArchived,
+          }
+        );
       }
 
       return { previousSave };
@@ -315,9 +321,7 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
                   <Archive className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                {save.isArchived ? "Unarchive" : "Archive"}
-              </TooltipContent>
+              <TooltipContent>{save.isArchived ? "Unarchive" : "Archive"}</TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -476,7 +480,8 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             <DialogHeader>
               <DialogTitle>Delete this save?</DialogTitle>
               <DialogDescription>
-                This will permanently delete "{save.title || save.url}". This action cannot be undone.
+                This will permanently delete "{save.title || save.url}". This action cannot be
+                undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -522,7 +527,9 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
                 <Textarea
                   id="description"
                   value={editForm.description}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, description: e.target.value }))
+                  }
                   placeholder="Add a description..."
                   rows={3}
                 />
