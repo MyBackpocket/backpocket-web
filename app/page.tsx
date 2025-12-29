@@ -19,12 +19,6 @@ export default function HomePage() {
           </Link>
 
           <div className="flex items-center gap-4">
-            <a
-              href="#features"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Features
-            </a>
             <ThemeSwitcher />
             <SignedOut>
               <Link href="/sign-in">
@@ -287,12 +281,6 @@ export default function HomePage() {
             <Link href="/" className="flex items-center gap-2">
               <Logo size="md" />
             </Link>
-
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#features" className="hover:text-foreground transition-colors">
-                Features
-              </a>
-            </div>
 
             <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} backpocket</p>
           </div>
