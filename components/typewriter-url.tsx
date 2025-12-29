@@ -28,20 +28,23 @@ export function TypewriterUrl() {
       return () => clearTimeout(pauseTimeout);
     }
 
-    const timeout = setTimeout(() => {
-      if (!isDeleting) {
-        setDisplayText(currentDomain.slice(0, displayText.length + 1));
-        return;
-      }
+    const timeout = setTimeout(
+      () => {
+        if (!isDeleting) {
+          setDisplayText(currentDomain.slice(0, displayText.length + 1));
+          return;
+        }
 
-      if (displayText.length > 0) {
-        setDisplayText(currentDomain.slice(0, displayText.length - 1));
-        return;
-      }
+        if (displayText.length > 0) {
+          setDisplayText(currentDomain.slice(0, displayText.length - 1));
+          return;
+        }
 
-      setIsDeleting(false);
-      setDomainIndex((prev) => (prev + 1) % domains.length);
-    }, isDeleting ? DELETING_SPEED : TYPING_SPEED);
+        setIsDeleting(false);
+        setDomainIndex((prev) => (prev + 1) % domains.length);
+      },
+      isDeleting ? DELETING_SPEED : TYPING_SPEED
+    );
 
     return () => clearTimeout(timeout);
   }, [displayText, isDeleting, domainIndex]);
