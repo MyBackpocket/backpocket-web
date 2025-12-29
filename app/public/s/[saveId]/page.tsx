@@ -1,0 +1,160 @@
+import { ArrowLeft, Bookmark, Calendar, ExternalLink, Globe, Rss } from "lucide-react";
+import { headers } from "next/headers";
+import Image from "next/image";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { getPublicSpace, mockSaves } from "@/lib/mock-data";
+import { formatDate, getDomainFromUrl } from "@/lib/utils";
+
+async function getSaveData(saveId: string) {
+  // In real implementation, this would query the database
+  const save = mockSaves.find(
+    (s) => s.id === saveId && (s.visibility === "public" || s.visibility === "unlisted")
+  );
+  if (!save) return null;
+  return {
+    id: save.id,
+    url: save.url,
+    title: save.title,
+    description: save.description,
+    siteName: save.siteName,
+    imageUrl: save.imageUrl,
+    savedAt: save.savedAt,
+    tags: save.tags?.map((t) => t.name),
+  };
+}
+
+export default async function PublicSavePermalinkPage({
+  params,
+}: {
+  params: Promise<{ saveId: string }>;
+}) {
+  const { saveId } = await params;
+  const headersList = await headers();
+  const _spaceSlug = headersList.get("x-space-slug") || "mario";
+
+  const space = getPublicSpace();
+  const save = await getSaveData(saveId);
+
+  if (!save) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-warm">
+        <div className="text-center">
+          <Bookmark className="mx-auto h-16 w-16 text-muted-foreground/50" />
+          <h1 className="mt-4 text-2xl font-semibold">Save not found</h1>
+          <p className="mt-2 text-muted-foreground">This save doesn't exist or is private.</p>
+          <Link href="/" className="mt-6 inline-block">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to space
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-warm">
+      {/* Header */}
+      <header className="border-b bg-background/80 backdrop-blur-md">
+        <div className="mx-auto max-w-3xl px-6 py-4">
+          <div className="flex items-center justify-between">
+            <Link
+              href="/"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to {space.name}</span>
+            </Link>
+            <Link
+              href="/rss.xml"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Rss className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="mx-auto max-w-3xl px-6 py-12">
+        <article className="animate-slide-up">
+          {/* Image */}
+          {save.imageUrl && (
+            <div className="relative mb-8 aspect-video overflow-hidden rounded-xl border">
+              <Image src={save.imageUrl} alt="" fill className="object-cover" />
+            </div>
+          )}
+
+          {/* Title */}
+          <h1 className="text-3xl font-semibold tracking-tight">{save.title || save.url}</h1>
+
+          {/* Meta */}
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <a
+              href={save.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+            >
+              <Globe className="h-4 w-4" />
+              <span>{save.siteName || getDomainFromUrl(save.url)}</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              <span>Saved {formatDate(save.savedAt)}</span>
+            </span>
+          </div>
+
+          {/* Tags */}
+          {save.tags && save.tags.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {save.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Description */}
+          {save.description && (
+            <p className="mt-8 text-lg text-muted-foreground leading-relaxed">{save.description}</p>
+          )}
+
+          {/* CTA */}
+          <div className="mt-12 rounded-xl border bg-card p-8 text-center">
+            <p className="text-muted-foreground">Want to read the full article?</p>
+            <a
+              href={save.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-block"
+            >
+              <Button>
+                Visit Original
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </Button>
+            </a>
+          </div>
+        </article>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t py-8">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <a
+            href="https://backpocket.my"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Bookmark className="h-4 w-4" />
+            <span>Powered by backpocket</span>
+          </a>
+        </div>
+      </footer>
+    </div>
+  );
+}
