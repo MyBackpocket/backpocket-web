@@ -1,9 +1,12 @@
-import { ArrowLeft, Bookmark, Calendar, ExternalLink, Globe, Rss } from "lucide-react";
+import { ArrowLeft, Calendar, ExternalLink, Globe, Rss } from "lucide-react";
 import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
+import { LogoIcon } from "@/components/logo";
+import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { VisitTracker } from "@/components/visit-tracker";
 import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, getDomainFromUrl } from "@/lib/utils";
@@ -43,7 +46,7 @@ export default async function PublicSavePermalinkPage({
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-warm">
         <div className="text-center">
-          <Bookmark className="mx-auto h-16 w-16 text-muted-foreground/50" />
+          <LogoIcon size="xl" className="mx-auto opacity-50" />
           <h1 className="mt-4 text-2xl font-semibold">Save not found</h1>
           <p className="mt-2 text-muted-foreground">This save doesn't exist or is private.</p>
           <Link href="/" className="mt-6 inline-block">
@@ -63,7 +66,7 @@ export default async function PublicSavePermalinkPage({
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-warm">
         <div className="text-center">
-          <Bookmark className="mx-auto h-16 w-16 text-muted-foreground/50" />
+          <LogoIcon size="xl" className="mx-auto opacity-50" />
           <h1 className="mt-4 text-2xl font-semibold">Save not found</h1>
           <p className="mt-2 text-muted-foreground">This save doesn't exist or is private.</p>
           <Link href="/" className="mt-6 inline-block">
@@ -79,6 +82,9 @@ export default async function PublicSavePermalinkPage({
 
   return (
     <div className="min-h-screen bg-gradient-warm">
+      {/* Track visit */}
+      {space && <VisitTracker spaceId={space.id} />}
+
       {/* Header */}
       <header className="border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-3xl px-6 py-4">
@@ -166,15 +172,18 @@ export default async function PublicSavePermalinkPage({
       </main>
 
       {/* Footer */}
-      <footer className="border-t py-8">
-        <div className="mx-auto max-w-3xl px-6 text-center">
-          <a
-            href="https://backpocket.my"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Bookmark className="h-4 w-4" />
-            <span>Powered by backpocket</span>
-          </a>
+      <footer className="border-t border-denim/15 py-8">
+        <div className="mx-auto max-w-3xl px-6">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <a
+              href="https://backpocket.my"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-rust transition-colors"
+            >
+              <LogoIcon size="xs" />
+              <span>Powered by backpocket</span>
+            </a>
+            <ThemeSwitcherCompact />
+          </div>
         </div>
       </footer>
     </div>

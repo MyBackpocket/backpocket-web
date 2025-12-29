@@ -4,7 +4,7 @@ import { ArrowRight, Bookmark, Eye, FolderOpen, Globe, Lock, Rss, Sparkles } fro
 import Link from "next/link";
 import { SignedIn, SignedOut } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { TypewriterUrl } from "@/components/typewriter-url";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +19,6 @@ export default function HomePage() {
           </Link>
 
           <div className="flex items-center gap-4">
-            <ThemeSwitcher />
             <SignedOut>
               <Link href="/sign-in">
                 <Button variant="ghost" size="sm">
@@ -285,9 +284,9 @@ export default function HomePage() {
       {/* CTA Section - Denim pocket inspired */}
       <section className="py-20 md:py-32">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-denim to-denim-deep px-8 py-16 text-center text-white md:px-16 md:py-24">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-denim to-denim-deep px-8 py-16 text-center text-white md:px-16 md:py-24">
             {/* Stitching detail */}
-            <div className="absolute inset-4 rounded-2xl border-2 border-dashed border-rust/40 pointer-events-none" />
+            <div className="absolute inset-6 rounded-2xl border-2 border-dashed border-rust/40 pointer-events-none" />
 
             {/* Background pattern */}
             <div className="absolute inset-0 -z-10 opacity-10">
@@ -338,7 +337,12 @@ export default function HomePage() {
               <Logo size="md" />
             </Link>
 
-            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} backpocket</p>
+            <div className="flex items-center gap-4">
+              <ThemeSwitcherCompact />
+              <p className="text-sm text-muted-foreground">
+                © {new Date().getFullYear()} backpocket
+              </p>
+            </div>
           </div>
         </div>
       </footer>

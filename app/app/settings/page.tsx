@@ -10,11 +10,14 @@ import {
   Globe,
   Link as LinkIcon,
   Loader2,
+  Monitor,
+  Moon,
   Plus,
   RefreshCw,
+  Sun,
   Trash2,
-  X,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -532,6 +535,19 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Theme Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Appearance</CardTitle>
+              <CardDescription>
+                Choose your preferred theme. This setting applies across the entire platform.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ThemeSelector />
+            </CardContent>
+          </Card>
+
           {/* Save button */}
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={updateSettings.isPending}>
@@ -541,6 +557,62 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Theme selector component
+function ThemeSelector() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24 rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  const themes = [
+    { value: "light", label: "Light", icon: Sun, description: "Light background" },
+    { value: "dark", label: "Dark", icon: Moon, description: "Dark background" },
+    { value: "system", label: "System", icon: Monitor, description: "Match device" },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-3">
+      {themes.map(({ value, label, icon: Icon, description }) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setTheme(value)}
+          className={`relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all hover:bg-accent ${
+            theme === value
+              ? "border-denim bg-denim/5"
+              : "border-transparent bg-muted/50 hover:border-muted-foreground/20"
+          }`}
+        >
+          <Icon className={`h-6 w-6 ${theme === value ? "text-denim" : "text-muted-foreground"}`} />
+          <div className="text-center">
+            <p className={`text-sm font-medium ${theme === value ? "text-foreground" : ""}`}>
+              {label}
+            </p>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+          {theme === value && (
+            <div className="absolute top-2 right-2">
+              <Check className="h-4 w-4 text-denim" />
+            </div>
+          )}
+        </button>
+      ))}
     </div>
   );
 }
@@ -639,9 +711,7 @@ function DomainItem({
           <div className="space-y-2 rounded-md bg-muted/50 p-3 text-sm">
             {status.verification.map((v, i) => (
               <div key={i} className="grid grid-cols-[80px,1fr,auto] gap-2 items-center">
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                  {v.type}
-                </span>
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{v.type}</span>
                 <span className="font-mono text-xs truncate">{v.value}</span>
                 <CopyButton text={v.value} />
               </div>
@@ -654,7 +724,9 @@ function DomainItem({
             </p>
             <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
               <strong>For subdomains:</strong> Add a CNAME record pointing to{" "}
-              <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">cname.vercel-dns.com</code>
+              <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">
+                cname.vercel-dns.com
+              </code>
             </p>
           </div>
         </div>

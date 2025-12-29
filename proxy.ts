@@ -90,10 +90,18 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
   const spaceSlug = resolveSpaceSlug(host);
 
   // If we have a space slug, this is a public space request - rewrite to /public
+  // But don't rewrite API routes - they need to reach the actual API handlers
   if (spaceSlug) {
-    const response = NextResponse.rewrite(
-      new URL(`/public${request.nextUrl.pathname}`, request.url)
-    );
+    const pathname = request.nextUrl.pathname;
+
+    // Allow API routes to pass through without rewrite
+    if (pathname.startsWith("/api/")) {
+      const response = NextResponse.next();
+      response.headers.set("x-space-slug", spaceSlug);
+      return response;
+    }
+
+    const response = NextResponse.rewrite(new URL(`/public${pathname}`, request.url));
     response.headers.set("x-space-slug", spaceSlug);
     return response;
   }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
+import { VisitTracker } from "@/components/visit-tracker";
 import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
 import { formatDate, formatNumber, getDomainFromUrl } from "@/lib/utils";
@@ -83,6 +84,9 @@ export default async function PublicSpacePage() {
 
   return (
     <div className="min-h-screen bg-gradient-denim">
+      {/* Track visit */}
+      <VisitTracker spaceId={space.id} />
+
       {/* Header */}
       <header className="border-b border-denim/15 bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-5xl px-6 py-8">
@@ -111,7 +115,7 @@ export default async function PublicSpacePage() {
               </div>
             </div>
 
-            {/* Visitor counter + RSS + Theme */}
+            {/* Visitor counter + RSS */}
             <div className="flex items-center gap-3">
               <div className="visitor-counter">
                 <Eye className="h-4 w-4" />
@@ -124,7 +128,6 @@ export default async function PublicSpacePage() {
                 <Rss className="h-4 w-4" />
                 <span>RSS</span>
               </Link>
-              <ThemeSwitcherCompact />
             </div>
           </div>
         </div>
@@ -251,14 +254,17 @@ export default async function PublicSpacePage() {
 
       {/* Footer */}
       <footer className="border-t border-denim/15 py-8">
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <a
-            href="https://backpocket.my"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-rust transition-colors"
-          >
-            <LogoIcon size="xs" />
-            <span>Powered by backpocket</span>
-          </a>
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <a
+              href="https://backpocket.my"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-rust transition-colors"
+            >
+              <LogoIcon size="xs" />
+              <span>Powered by backpocket</span>
+            </a>
+            <ThemeSwitcherCompact />
+          </div>
         </div>
       </footer>
     </div>

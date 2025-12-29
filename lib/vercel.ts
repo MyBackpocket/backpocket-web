@@ -134,7 +134,9 @@ export async function verifyDomain(domain: string): Promise<{ verified: boolean;
 /**
  * Remove a domain from the Vercel project
  */
-export async function removeDomainFromProject(domain: string): Promise<{ success: boolean; error?: string }> {
+export async function removeDomainFromProject(
+  domain: string
+): Promise<{ success: boolean; error?: string }> {
   if (!vercel || !projectId) {
     return { success: false, error: "Vercel not configured" };
   }
@@ -151,4 +153,3 @@ export async function removeDomainFromProject(domain: string): Promise<{ success
     return { success: false, error: errorMessage };
   }
 }
-

@@ -16,7 +16,6 @@ import { useState } from "react";
 import { UserButton } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
 import { QuickAdd } from "@/components/quick-add";
-import { ThemeSwitcher } from "@/components/theme-switcher";
 import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/lib/utils";
 
@@ -135,7 +134,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 )}
               </div>
-              <ThemeSwitcher />
             </div>
           </div>
         </div>
