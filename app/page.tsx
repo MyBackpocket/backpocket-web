@@ -286,7 +286,7 @@ export default function HomePage() {
       {/* CTA Section - Denim pocket inspired */}
       <section className="py-20 md:py-32">
         <div className="mx-auto max-w-6xl px-6">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-denim to-denim-deep px-8 py-16 text-center text-white md:px-16 md:py-24">
+          <div className="relative overflow-hidden rounded-3xl bg-linear-to-b from-denim to-denim-deep px-8 py-16 text-center text-white md:px-16 md:py-24">
             {/* Stitching detail */}
             <div className="absolute inset-6 rounded-2xl border-2 border-dashed border-rust/40 pointer-events-none" />
 

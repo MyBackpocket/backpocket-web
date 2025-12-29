@@ -106,7 +106,7 @@ export default async function PublicSpacePage() {
                   />
                 </div>
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-denim to-denim-deep text-white shadow-denim">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-denim to-denim-deep text-white shadow-denim">
                   <span className="text-2xl font-semibold">
                     {space.name.charAt(0).toUpperCase()}
                   </span>
@@ -157,7 +157,7 @@ export default async function PublicSpacePage() {
                         />
                       </div>
                     ) : (
-                      <div className="flex aspect-video w-full items-center justify-center bg-gradient-to-br from-denim/5 to-denim/10">
+                      <div className="flex aspect-video w-full items-center justify-center bg-linear-to-br from-denim/5 to-denim/10">
                         <Bookmark className="h-8 w-8 text-denim/30" />
                       </div>
                     )}
