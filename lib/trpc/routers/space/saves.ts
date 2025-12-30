@@ -561,4 +561,25 @@ export const savesRouter = router({
 
       return { success: true, id: input.saveId };
     }),
+
+  bulkDeleteSaves: protectedProcedure
+    .input(z.object({ saveIds: z.array(z.string()).min(1).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      const space = await getUserSpace(ctx.userId, ctx.spaceCache);
+      if (!space) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Space not found" });
+      }
+
+      const { error, count } = await supabaseAdmin
+        .from("saves")
+        .delete()
+        .in("id", input.saveIds)
+        .eq("space_id", space.id);
+
+      if (error) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to delete saves" });
+      }
+
+      return { success: true, deletedCount: count ?? input.saveIds.length };
+    }),
 });

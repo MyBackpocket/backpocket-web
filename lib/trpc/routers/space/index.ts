@@ -26,6 +26,7 @@ export const spaceRouter = router({
   toggleFavorite: savesRouter.toggleFavorite,
   toggleArchive: savesRouter.toggleArchive,
   deleteSave: savesRouter.deleteSave,
+  bulkDeleteSaves: savesRouter.bulkDeleteSaves,
 
   // Collections
   listCollections: collectionsRouter.listCollections,

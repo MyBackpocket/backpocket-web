@@ -13,6 +13,8 @@ import {
   Plus,
   Search,
   Star,
+  Trash2,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -20,6 +22,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,13 +50,21 @@ type FilterType = "all" | "favorites" | "archived" | "public" | "private";
 function SaveCard({
   save,
   viewMode,
+  isSelected,
+  isSelectionMode,
+  onSelect,
   onToggleFavorite,
   onToggleArchive,
+  onDelete,
 }: {
   save: APISave;
   viewMode: ViewMode;
+  isSelected: boolean;
+  isSelectionMode: boolean;
+  onSelect: () => void;
   onToggleFavorite: () => void;
   onToggleArchive: () => void;
+  onDelete: () => void;
 }) {
   const visibilityIcon = {
     public: <Eye className="h-3 w-3" />,
@@ -69,7 +80,26 @@ function SaveCard({
 
   if (viewMode === "list") {
     return (
-      <div className="group flex items-center gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50">
+      <div
+        className={cn(
+          "group flex items-center gap-4 rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50",
+          isSelected && "border-primary bg-primary/5"
+        )}
+      >
+        {/* Checkbox */}
+        <div
+          className={cn(
+            "shrink-0 transition-opacity",
+            isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelect}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+
         {save.imageUrl ? (
           <div className="relative h-16 w-24 shrink-0">
             <Image src={save.imageUrl} alt="" fill className="rounded-md object-cover" />
@@ -159,7 +189,9 @@ function SaveCard({
                 </a>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+                Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -169,7 +201,27 @@ function SaveCard({
 
   // Grid view
   return (
-    <Card className="group overflow-hidden card-hover">
+    <Card
+      className={cn(
+        "group overflow-hidden card-hover relative",
+        isSelected && "ring-2 ring-primary"
+      )}
+    >
+      {/* Checkbox overlay for grid view */}
+      <div
+        className={cn(
+          "absolute left-3 top-3 z-10 transition-opacity",
+          isSelectionMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        )}
+      >
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-background/80 backdrop-blur-sm"
+        />
+      </div>
+
       <Link href={`/app/saves/${save.id}`}>
         {save.imageUrl ? (
           <div className="relative aspect-video w-full">
@@ -256,6 +308,7 @@ export default function SavesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const queryOptions = {
     query: searchQuery || undefined,
@@ -288,6 +341,63 @@ export default function SavesPage() {
     },
   });
 
+  const deleteSave = trpc.space.deleteSave.useMutation({
+    onSuccess: () => {
+      utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
+    },
+  });
+
+  const bulkDeleteSaves = trpc.space.bulkDeleteSaves.useMutation({
+    onSuccess: () => {
+      setSelectedIds(new Set());
+      utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
+    },
+  });
+
+  const isSelectionMode = selectedIds.size > 0;
+  const allSelected =
+    data?.items && data.items.length > 0 && selectedIds.size === data.items.length;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (!data?.items) return;
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(data.items.map((s) => s.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    if (
+      confirm(
+        `Are you sure you want to delete ${selectedIds.size} save${selectedIds.size > 1 ? "s" : ""}? This action cannot be undone.`
+      )
+    ) {
+      bulkDeleteSaves.mutate({ saveIds: Array.from(selectedIds) });
+    }
+  };
+
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
@@ -304,6 +414,28 @@ export default function SavesPage() {
         </Link>
       </div>
 
+      {/* Bulk actions bar */}
+      {isSelectionMode && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-primary/50 bg-primary/5 p-3">
+          <Checkbox checked={allSelected} onCheckedChange={selectAll} />
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="flex-1" />
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleteSaves.isPending}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {bulkDeleteSaves.isPending ? "Deleting..." : `Delete ${selectedIds.size}`}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={clearSelection}>
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
+      )}
+
       {/* Filters and search */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -317,6 +449,14 @@ export default function SavesPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Select all toggle when not in selection mode */}
+          {!isSelectionMode && data?.items && data.items.length > 0 && (
+            <Button variant="outline" size="sm" onClick={selectAll} className="gap-2">
+              <Checkbox checked={false} className="pointer-events-none" />
+              Select
+            </Button>
+          )}
+
           <Select value={filter} onValueChange={(value) => setFilter(value as FilterType)}>
             <SelectTrigger className="w-[140px]">
               <Filter className="mr-2 h-4 w-4" />
@@ -363,8 +503,16 @@ export default function SavesPage() {
                 key={save.id}
                 save={save}
                 viewMode={viewMode}
+                isSelected={selectedIds.has(save.id)}
+                isSelectionMode={isSelectionMode}
+                onSelect={() => toggleSelect(save.id)}
                 onToggleFavorite={() => toggleFavorite.mutate({ saveId: save.id })}
                 onToggleArchive={() => toggleArchive.mutate({ saveId: save.id })}
+                onDelete={() => {
+                  if (confirm("Are you sure you want to delete this save?")) {
+                    deleteSave.mutate({ saveId: save.id });
+                  }
+                }}
               />
             ))}
           </div>
@@ -375,8 +523,16 @@ export default function SavesPage() {
                 key={save.id}
                 save={save}
                 viewMode={viewMode}
+                isSelected={selectedIds.has(save.id)}
+                isSelectionMode={isSelectionMode}
+                onSelect={() => toggleSelect(save.id)}
                 onToggleFavorite={() => toggleFavorite.mutate({ saveId: save.id })}
                 onToggleArchive={() => toggleArchive.mutate({ saveId: save.id })}
+                onDelete={() => {
+                  if (confirm("Are you sure you want to delete this save?")) {
+                    deleteSave.mutate({ saveId: save.id });
+                  }
+                }}
               />
             ))}
           </div>
