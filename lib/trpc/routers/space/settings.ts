@@ -79,6 +79,7 @@ export const settingsRouter = router({
         avatarUrl: z.string().optional(),
         visibility: z.enum(["public", "private"]).optional(),
         publicLayout: z.enum(["list", "grid"]).optional(),
+        defaultSaveVisibility: z.enum(["private", "public", "unlisted"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -93,6 +94,8 @@ export const settingsRouter = router({
       if (input.avatarUrl !== undefined) updateData.avatar_url = input.avatarUrl;
       if (input.visibility !== undefined) updateData.visibility = input.visibility;
       if (input.publicLayout !== undefined) updateData.public_layout = input.publicLayout;
+      if (input.defaultSaveVisibility !== undefined)
+        updateData.default_save_visibility = input.defaultSaveVisibility;
 
       const { data: updated, error } = await supabaseAdmin
         .from("spaces")

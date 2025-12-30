@@ -69,14 +69,21 @@ function NewSaveForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Get user's default save visibility from settings
+  const { data: space } = trpc.space.getMySpace.useQuery();
+  const defaultVisibility = space?.defaultSaveVisibility ?? "private";
+
   // Initialize from URL params (from QuickAdd "More options")
   const [url, setUrl] = useState(searchParams.get("url") || "");
   const [title, setTitle] = useState(searchParams.get("title") || "");
-  const [visibility, setVisibility] = useState<SaveVisibility>(
-    (searchParams.get("visibility") as SaveVisibility) || "private"
+  const [visibility, setVisibility] = useState<SaveVisibility | null>(
+    (searchParams.get("visibility") as SaveVisibility) || null
   );
   const [note, setNote] = useState("");
   const [tags, setTags] = useState("");
+
+  // Use the user's default visibility if not explicitly set
+  const effectiveVisibility = visibility ?? defaultVisibility;
 
   const { data: collections } = trpc.space.listCollections.useQuery();
   const [selectedCollection, setSelectedCollection] = useState<string>(
@@ -116,7 +123,7 @@ function NewSaveForm() {
     createSave.mutate({
       url,
       title: title || undefined,
-      visibility,
+      visibility: effectiveVisibility,
       collectionIds:
         selectedCollection && selectedCollection !== "none" ? [selectedCollection] : undefined,
       tagNames: tags
@@ -129,7 +136,7 @@ function NewSaveForm() {
     });
   };
 
-  const selectedVisibility = VISIBILITY_OPTIONS.find((v) => v.value === visibility);
+  const selectedVisibility = VISIBILITY_OPTIONS.find((v) => v.value === effectiveVisibility);
   const VisibilityIcon = selectedVisibility?.icon || Lock;
 
   return (
@@ -194,7 +201,10 @@ function NewSaveForm() {
               <Label htmlFor="visibility" className="text-sm font-medium">
                 Visibility
               </Label>
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as SaveVisibility)}>
+              <Select
+                value={effectiveVisibility}
+                onValueChange={(v) => setVisibility(v as SaveVisibility)}
+              >
                 <SelectTrigger className="h-11">
                   <div className="flex items-center gap-2">
                     <VisibilityIcon className="h-4 w-4 text-muted-foreground shrink-0" />

@@ -60,6 +60,7 @@ async function fetchUserSpaceFromDB(userId: string): Promise<Space | null> {
     avatar_url: string | null;
     visibility: string;
     public_layout: string;
+    default_save_visibility: string;
     created_at: string;
     updated_at: string;
   };
@@ -76,6 +77,10 @@ async function fetchUserSpaceFromDB(userId: string): Promise<Space | null> {
     avatarUrl: space.avatar_url,
     visibility: space.visibility as "public" | "private",
     publicLayout: space.public_layout as "list" | "grid",
+    defaultSaveVisibility: (space.default_save_visibility || "private") as
+      | "private"
+      | "public"
+      | "unlisted",
     createdAt: new Date(space.created_at),
     updatedAt: new Date(space.updated_at),
   };
@@ -96,6 +101,7 @@ export async function createSpaceForUser(userId: string): Promise<Space> {
       name: "My Collection",
       visibility: "public",
       public_layout: "grid",
+      default_save_visibility: "private",
     })
     .select()
     .single();
@@ -124,6 +130,7 @@ export async function createSpaceForUser(userId: string): Promise<Space> {
     avatarUrl: space.avatar_url,
     visibility: space.visibility,
     publicLayout: space.public_layout,
+    defaultSaveVisibility: space.default_save_visibility || "private",
     createdAt: new Date(space.created_at),
     updatedAt: new Date(space.updated_at),
   };

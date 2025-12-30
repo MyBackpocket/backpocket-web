@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS spaces (
     avatar_url TEXT,
     visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')) DEFAULT 'public',
     public_layout TEXT NOT NULL CHECK (public_layout IN ('list', 'grid')) DEFAULT 'grid',
+    default_save_visibility TEXT NOT NULL CHECK (default_save_visibility IN ('private', 'public', 'unlisted')) DEFAULT 'private',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

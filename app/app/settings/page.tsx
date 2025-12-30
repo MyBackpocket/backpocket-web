@@ -10,6 +10,7 @@ import {
   Globe,
   Link as LinkIcon,
   Loader2,
+  Lock,
   Monitor,
   Moon,
   Plus,
@@ -49,7 +50,7 @@ import { ROOT_DOMAIN } from "@/lib/config/public";
 import { dnsProviderList, vercelDns } from "@/lib/constants/dns";
 import { buildSpaceUrl, isLocalhostHostname } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
-import type { PublicLayout, SpaceVisibility } from "@/lib/types";
+import type { PublicLayout, SaveVisibility, SpaceVisibility } from "@/lib/types";
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -76,6 +77,7 @@ export default function SettingsPage() {
   const [bio, setBio] = useState("");
   const [visibility, setVisibility] = useState<SpaceVisibility>("private");
   const [publicLayout, setPublicLayout] = useState<PublicLayout>("grid");
+  const [defaultSaveVisibility, setDefaultSaveVisibility] = useState<SaveVisibility>("private");
 
   // Slug editing state
   const [slug, setSlug] = useState("");
@@ -94,6 +96,7 @@ export default function SettingsPage() {
       setBio(space.bio || "");
       setVisibility(space.visibility);
       setPublicLayout(space.publicLayout);
+      setDefaultSaveVisibility(space.defaultSaveVisibility);
       setSlug(space.slug);
       setSlugInput(space.slug);
     }
@@ -156,6 +159,7 @@ export default function SettingsPage() {
       bio,
       visibility,
       publicLayout,
+      defaultSaveVisibility,
     });
   };
 
@@ -537,6 +541,53 @@ export default function SettingsPage() {
                   Add Custom Domain
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Default Save Visibility */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5" />
+                Default Save Visibility
+              </CardTitle>
+              <CardDescription>Choose the default visibility for new saves</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="defaultVisibility">When you save a new link</Label>
+                <Select
+                  value={defaultSaveVisibility}
+                  onValueChange={(v) => setDefaultSaveVisibility(v as SaveVisibility)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="private">
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4" />
+                        Private — Only you can see
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="public">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        Public — Visible in your public space
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="unlisted">
+                      <div className="flex items-center gap-2">
+                        <EyeOff className="h-4 w-4" />
+                        Unlisted — Accessible via direct link only
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  You can always change visibility for individual saves
+                </p>
+              </div>
             </CardContent>
           </Card>
 

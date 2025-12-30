@@ -18,6 +18,7 @@ export interface Space {
   avatarUrl: string | null;
   visibility: SpaceVisibility;
   publicLayout: PublicLayout;
+  defaultSaveVisibility: SaveVisibility;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -39,10 +39,15 @@ export function QuickAdd() {
   const [url, setUrl] = useState("");
   const [state, setState] = useState<QuickAddState>("idle");
   const [metadata, setMetadata] = useState<FetchedMetadata | null>(null);
-  const [visibility, setVisibility] = useState<SaveVisibility>("private");
+  const [visibility, setVisibility] = useState<SaveVisibility | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Get user's default save visibility from settings
+  const { data: space } = trpc.space.getMySpace.useQuery();
+  const defaultVisibility = space?.defaultSaveVisibility ?? "private";
+  const effectiveVisibility = visibility ?? defaultVisibility;
 
   // Prevent hydration mismatch with Radix UI components
   useEffect(() => {
@@ -76,7 +81,7 @@ export function QuickAdd() {
     setUrl("");
     setState("idle");
     setMetadata(null);
-    setVisibility("private");
+    setVisibility(null);
     setSelectedCollection(null);
   }, []);
 
@@ -150,10 +155,10 @@ export function QuickAdd() {
     createSave.mutate({
       url,
       title: metadata.title,
-      visibility,
+      visibility: effectiveVisibility,
       collectionIds: selectedCollection ? [selectedCollection] : undefined,
     });
-  }, [url, metadata, visibility, selectedCollection, createSave]);
+  }, [url, metadata, effectiveVisibility, selectedCollection, createSave]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -294,12 +299,12 @@ export function QuickAdd() {
                         className="gap-2"
                         disabled={state === "saving"}
                       >
-                        {visibility === "private" ? (
+                        {effectiveVisibility === "private" ? (
                           <Lock className="h-3.5 w-3.5" />
                         ) : (
                           <Globe className="h-3.5 w-3.5" />
                         )}
-                        {visibility === "private" ? "Private" : "Public"}
+                        {effectiveVisibility === "private" ? "Private" : "Public"}
                         <ChevronDown className="h-3 w-3 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -307,12 +312,12 @@ export function QuickAdd() {
                       <DropdownMenuItem onClick={() => setVisibility("private")}>
                         <Lock className="h-4 w-4 mr-2" />
                         Private
-                        {visibility === "private" && <Check className="h-4 w-4 ml-auto" />}
+                        {effectiveVisibility === "private" && <Check className="h-4 w-4 ml-auto" />}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setVisibility("public")}>
                         <Globe className="h-4 w-4 mr-2" />
                         Public
-                        {visibility === "public" && <Check className="h-4 w-4 ml-auto" />}
+                        {effectiveVisibility === "public" && <Check className="h-4 w-4 ml-auto" />}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -359,7 +364,7 @@ export function QuickAdd() {
                       const params = new URLSearchParams({
                         url,
                         title: metadata.title,
-                        visibility,
+                        visibility: effectiveVisibility,
                       });
                       if (selectedCollection) {
                         params.set("collection", selectedCollection);
