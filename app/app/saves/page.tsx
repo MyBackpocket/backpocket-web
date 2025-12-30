@@ -115,7 +115,7 @@ function SaveListItem({
               />
             </div>
           ) : (
-            <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-muted/50">
+            <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-linear-to-br from-muted to-muted/50">
               <Bookmark className="h-8 w-8 text-muted-foreground/40" />
             </div>
           )}
@@ -125,19 +125,17 @@ function SaveListItem({
       {/* Content */}
       <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
         <div>
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Badge className={cn("shrink-0 gap-1 text-xs", vis.class)}>
+              <VisIcon className="h-3 w-3" />
+              {vis.label}
+            </Badge>
             <Link
               href={`/app/saves/${save.id}`}
               className="font-medium leading-snug text-foreground transition-colors hover:text-primary line-clamp-1"
             >
               {save.title || save.url}
             </Link>
-
-            {/* Visibility badge */}
-            <Badge className={cn("shrink-0 gap-1 text-xs", vis.class)}>
-              <VisIcon className="h-3 w-3" />
-              {vis.label}
-            </Badge>
           </div>
 
           {save.description && (
@@ -283,12 +281,6 @@ function SaveGridCard({
         />
       </div>
 
-      {/* Visibility badge overlay */}
-      <Badge className={cn("absolute right-3 top-3 z-10 gap-1 text-xs shadow-sm", vis.class)}>
-        <VisIcon className="h-3 w-3" />
-        {vis.label}
-      </Badge>
-
       {/* Favorite button overlay */}
       <Button
         variant="ghost"
@@ -298,7 +290,7 @@ function SaveGridCard({
           onToggleFavorite();
         }}
         className={cn(
-          "absolute right-3 top-11 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm shadow-sm transition-all duration-200",
+          "absolute right-3 top-3 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm shadow-sm transition-all duration-200",
           save.isFavorite ? "opacity-100 text-amber" : "opacity-0 group-hover:opacity-100"
         )}
       >
@@ -316,7 +308,7 @@ function SaveGridCard({
             />
           </div>
         ) : (
-          <div className="flex aspect-video w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+          <div className="flex aspect-video w-full items-center justify-center bg-linear-to-br from-muted to-muted/50">
             <Bookmark className="h-10 w-10 text-muted-foreground/30" />
           </div>
         )}
@@ -334,9 +326,15 @@ function SaveGridCard({
           <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{save.description}</p>
         )}
 
-        <div className="mt-3 flex items-center text-xs text-muted-foreground">
-          <Globe className="h-3 w-3 mr-1.5" />
-          {getDomainFromUrl(save.url)}
+        <div className="mt-3 flex items-center justify-between">
+          <span className="flex items-center text-xs text-muted-foreground">
+            <Globe className="h-3 w-3 mr-1.5" />
+            {getDomainFromUrl(save.url)}
+          </span>
+          <Badge className={cn("gap-1 text-xs", vis.class)}>
+            <VisIcon className="h-3 w-3" />
+            {vis.label}
+          </Badge>
         </div>
       </div>
     </Card>
@@ -508,7 +506,7 @@ export default function SavesPage() {
                   : "border-muted-foreground/50 hover:border-primary"
               )}
             >
-              {allSelected && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+              {allSelected && <Check className="h-3.5 w-3.5 stroke-3" />}
             </div>
             {allSelected ? "Deselect all" : "Select all"}
           </button>
