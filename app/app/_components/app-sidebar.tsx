@@ -101,6 +101,7 @@ export function AppSidebar({ space, isOpen, onClose }: AppSidebarProps) {
         <div className="border-t border-denim/15 p-4">
           <div className="flex items-center gap-3">
             <UserButton
+              sizeClassName="h-9 w-9"
               appearance={{
                 elements: {
                   avatarBox: "h-9 w-9",

@@ -7,6 +7,7 @@ import {
   useClerk,
   useUser,
 } from "@clerk/nextjs";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const hasClerk = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -27,16 +28,36 @@ export function SignedOut({ children }: { children: React.ReactNode }) {
   return <ClerkSignedOut>{children}</ClerkSignedOut>;
 }
 
-export function UserButton(props: React.ComponentProps<typeof ClerkUserButton>) {
+type UserButtonProps = React.ComponentProps<typeof ClerkUserButton> & {
+  /** Class name for the wrapper container size (e.g. "h-9 w-9") */
+  sizeClassName?: string;
+};
+
+// Internal component that handles the loading state for UserButton
+function ClerkUserButtonWithSkeleton({ sizeClassName = "h-8 w-8", ...props }: UserButtonProps) {
+  const { isLoaded } = useUser();
+
+  // Fixed-size wrapper prevents any layout shift
+  return (
+    <div className={`${sizeClassName} shrink-0 relative`}>
+      {!isLoaded && <Skeleton className="absolute inset-0 rounded-full" />}
+      <ClerkUserButton {...props} />
+    </div>
+  );
+}
+
+export function UserButton({ sizeClassName = "h-8 w-8", ...props }: UserButtonProps) {
   if (!hasClerk) {
     // In dev without Clerk, show a placeholder avatar
     return (
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+      <div
+        className={`flex ${sizeClassName} items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium shrink-0`}
+      >
         U
       </div>
     );
   }
-  return <ClerkUserButton {...props} />;
+  return <ClerkUserButtonWithSkeleton sizeClassName={sizeClassName} {...props} />;
 }
 
 // Internal component that uses Clerk hooks (only rendered when Clerk is available)
