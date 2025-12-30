@@ -43,7 +43,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
@@ -317,34 +316,24 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </div>
 
           <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => toggleFavorite.mutate({ saveId: save.id })}
-                  className={cn(save.isFavorite && "text-yellow-500")}
-                >
-                  <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {save.isFavorite ? "Remove from favorites" : "Add to favorites"}
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => toggleArchive.mutate({ saveId: save.id })}
-                  className={cn(save.isArchived && "text-primary")}
-                >
-                  <Archive className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{save.isArchived ? "Unarchive" : "Archive"}</TooltipContent>
-            </Tooltip>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toggleFavorite.mutate({ saveId: save.id })}
+              className={cn(save.isFavorite && "text-yellow-500")}
+            >
+              <Star className={cn("mr-2 h-4 w-4", save.isFavorite && "fill-current")} />
+              {save.isFavorite ? "Unfavorite" : "Favorite"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toggleArchive.mutate({ saveId: save.id })}
+              className={cn(save.isArchived && "text-primary")}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {save.isArchived ? "Unarchive" : "Archive"}
+            </Button>
           </div>
         </div>
 
