@@ -67,7 +67,12 @@ export async function enqueueSnapshotJob(
   spaceId: string,
   url: string
 ): Promise<EnqueueResult> {
+  console.log(`[snapshots] ========== enqueueSnapshotJob called ==========`);
+  console.log(`[snapshots] saveId=${saveId}, url=${url}`);
+  console.log(`[snapshots] SNAPSHOTS_ENABLED=${SNAPSHOTS_ENABLED}, IS_DEVELOPMENT=${IS_DEVELOPMENT}`);
+  
   if (!SNAPSHOTS_ENABLED) {
+    console.log(`[snapshots] Returning early: snapshots disabled`);
     return { ok: false, error: "Snapshots are disabled" };
   }
 
@@ -80,10 +85,12 @@ export async function enqueueSnapshotJob(
   }
 
   // Debug logging for production
-  console.log(`[snapshots] Enqueuing job for save=${saveId}`, {
+  console.log(`[snapshots] Production mode: using QStash`, {
     hasQstashToken: !!process.env.QSTASH_TOKEN,
     hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
     hasVercelUrl: !!process.env.VERCEL_URL,
+    vercelUrl: process.env.VERCEL_URL,
+    appUrl: process.env.NEXT_PUBLIC_APP_URL,
     nodeEnv: process.env.NODE_ENV,
   });
 

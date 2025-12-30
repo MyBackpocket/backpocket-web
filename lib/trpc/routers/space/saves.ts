@@ -310,17 +310,26 @@ export const savesRouter = router({
       }
 
       // Create snapshot job if snapshots are enabled
+      console.log(`[saves] SNAPSHOTS_ENABLED=${SNAPSHOTS_ENABLED}, save.id=${save.id}`);
       if (SNAPSHOTS_ENABLED) {
+        console.log(`[saves] Creating snapshot record for save=${save.id}`);
         // Create the snapshot record
-        await supabaseAdmin.from("save_snapshots").insert({
+        const { error: snapshotInsertError } = await supabaseAdmin.from("save_snapshots").insert({
           save_id: save.id,
           space_id: space.id,
           status: "pending",
         });
 
+        if (snapshotInsertError) {
+          console.error(`[saves] Failed to insert snapshot record:`, snapshotInsertError);
+        } else {
+          console.log(`[saves] Snapshot record created, enqueuing job...`);
+        }
+
         // Enqueue the snapshot job (fire and forget - don't block save creation)
         enqueueSnapshotJob(save.id, space.id, input.url)
           .then((result) => {
+            console.log(`[saves] enqueueSnapshotJob returned:`, result);
             if (result.ok) {
               console.log(`[saves] Snapshot job enqueued: messageId=${result.messageId}`);
             } else {
@@ -330,6 +339,8 @@ export const savesRouter = router({
           .catch((err) => {
             console.error("[saves] Snapshot job threw exception:", err);
           });
+      } else {
+        console.log(`[saves] Snapshots disabled, skipping`);
       }
 
       return transformSave(save, tags, collections);
