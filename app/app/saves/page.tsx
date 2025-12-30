@@ -5,9 +5,9 @@ import {
   Bookmark,
   Calendar,
   Check,
+  ExternalLink,
   Eye,
   EyeOff,
-  ExternalLink,
   Filter,
   Globe,
   Grid3X3,
@@ -102,10 +102,7 @@ function SaveListItem({
       </div>
 
       {/* Thumbnail */}
-      <Link
-        href={`/app/saves/${save.id}`}
-        className="shrink-0 overflow-hidden rounded-lg"
-      >
+      <Link href={`/app/saves/${save.id}`} className="shrink-0 overflow-hidden rounded-lg">
         {save.imageUrl ? (
           <div className="relative h-20 w-32 overflow-hidden rounded-lg bg-muted">
             <Image
@@ -141,9 +138,7 @@ function SaveListItem({
           </div>
 
           {save.description && (
-            <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
-              {save.description}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{save.description}</p>
           )}
         </div>
 
@@ -219,12 +214,7 @@ function SaveListItem({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a
-                href={save.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="gap-2"
-              >
+              <a href={save.url} target="_blank" rel="noopener noreferrer" className="gap-2">
                 <ExternalLink className="h-4 w-4" />
                 Open original
               </a>
@@ -302,9 +292,7 @@ function SaveGridCard({
         }}
         className={cn(
           "absolute right-3 top-3 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm shadow-sm transition-all duration-200",
-          save.isFavorite
-            ? "opacity-100 text-amber"
-            : "opacity-0 group-hover:opacity-100"
+          save.isFavorite ? "opacity-100 text-amber" : "opacity-0 group-hover:opacity-100"
         )}
       >
         <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
@@ -336,9 +324,7 @@ function SaveGridCard({
         </Link>
 
         {save.description && (
-          <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">
-            {save.description}
-          </p>
+          <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{save.description}</p>
         )}
 
         <div className="mt-3 flex items-center justify-between">
@@ -360,10 +346,7 @@ function SavesSkeleton({ viewMode }: { viewMode: ViewMode }) {
     return (
       <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-4 rounded-xl border bg-card/50 p-4"
-          >
+          <div key={i} className="flex items-center gap-4 rounded-xl border bg-card/50 p-4">
             <Skeleton className="h-20 w-32 rounded-lg" />
             <div className="flex-1 space-y-3">
               <Skeleton className="h-5 w-3/4" />
@@ -528,9 +511,7 @@ export default function SavesPage() {
             {allSelected ? "Deselect all" : "Select all"}
           </button>
 
-          <span className="text-sm text-muted-foreground">
-            {selectedIds.size} selected
-          </span>
+          <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
 
           <div className="flex-1" />
 
@@ -542,9 +523,7 @@ export default function SavesPage() {
             className="gap-2"
           >
             <Trash2 className="h-4 w-4" />
-            {bulkDeleteSaves.isPending
-              ? "Deleting..."
-              : `Delete ${selectedIds.size}`}
+            {bulkDeleteSaves.isPending ? "Deleting..." : `Delete ${selectedIds.size}`}
           </Button>
 
           <Button variant="ghost" size="sm" onClick={clearSelection} className="gap-2">
@@ -569,12 +548,7 @@ export default function SavesPage() {
         <div className="flex items-center gap-2">
           {/* Select button when not in selection mode */}
           {!isSelectionMode && data?.items && data.items.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={selectAll}
-              className="gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={selectAll} className="gap-2">
               <div className="h-4 w-4 rounded border-2 border-current" />
               Select
             </Button>
