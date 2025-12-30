@@ -68,7 +68,17 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
   // Query snapshot data with content
   const { data: snapshotData, isLoading: isSnapshotLoading } = trpc.space.getSaveSnapshot.useQuery(
     { saveId, includeContent: true },
-    { enabled: !!save }
+    {
+      enabled: !!save,
+      // Poll every 2 seconds while snapshot is pending/processing
+      refetchInterval: (query) => {
+        const status = query.state.data?.snapshot?.status;
+        if (status === "pending" || status === "processing") {
+          return 2000; // Poll every 2 seconds
+        }
+        return false; // Stop polling when ready/failed/blocked
+      },
+    }
   );
 
   const toggleFavorite = trpc.space.toggleFavorite.useMutation({
