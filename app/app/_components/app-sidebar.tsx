@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { UserButton } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
 import { QuickAdd } from "@/components/quick-add";
-import { ROOT_DOMAIN } from "@/lib/config/public";
+import { IS_DEVELOPMENT, ROOT_DOMAIN } from "@/lib/config/public";
 import { routes } from "@/lib/constants/routes";
-import { buildSpaceHostname, isLocalhostHostname } from "@/lib/constants/urls";
+import { buildSpaceHostname } from "@/lib/constants/urls";
 import type { Space } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -115,9 +115,7 @@ export function AppSidebar({ space, isOpen, onClose }: AppSidebarProps) {
                     {buildSpaceHostname({
                       slug: space.slug,
                       rootDomain: ROOT_DOMAIN,
-                      isLocalhost:
-                        typeof window !== "undefined" &&
-                        isLocalhostHostname(window.location.hostname),
+                      isLocalhost: IS_DEVELOPMENT,
                     })}
                   </p>
                   <Link

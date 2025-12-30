@@ -7,9 +7,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ROOT_DOMAIN } from "@/lib/config/public";
+import { IS_DEVELOPMENT, ROOT_DOMAIN } from "@/lib/config/public";
 import { routes, savesWithFilter } from "@/lib/constants/routes";
-import { buildSpaceHostname, buildSpaceUrl, isLocalhostHostname } from "@/lib/constants/urls";
+import { buildSpaceHostname, buildSpaceUrl } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
 import { formatNumber } from "@/lib/utils";
 
@@ -239,8 +239,7 @@ export default function DashboardClient() {
                 {buildSpaceHostname({
                   slug: space.slug,
                   rootDomain: ROOT_DOMAIN,
-                  isLocalhost:
-                    typeof window !== "undefined" && isLocalhostHostname(window.location.hostname),
+                  isLocalhost: IS_DEVELOPMENT,
                 })}
               </p>
             </div>
@@ -248,8 +247,7 @@ export default function DashboardClient() {
               href={buildSpaceUrl({
                 slug: space.slug,
                 rootDomain: ROOT_DOMAIN,
-                isLocalhost:
-                  typeof window !== "undefined" && isLocalhostHostname(window.location.hostname),
+                isLocalhost: IS_DEVELOPMENT,
               })}
               target="_blank"
               rel="noopener noreferrer"
