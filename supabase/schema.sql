@@ -119,20 +119,82 @@ CREATE TABLE IF NOT EXISTS domain_mappings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indexes for common queries
+-- =============================================================================
+-- INDEXES FOR PERFORMANCE
+-- =============================================================================
+
+-- Membership lookups (for auth/space resolution)
 CREATE INDEX IF NOT EXISTS idx_memberships_user_id ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_space_id ON memberships(space_id);
+-- Composite for the most common auth lookup: user's active memberships
+CREATE INDEX IF NOT EXISTS idx_memberships_user_status ON memberships(user_id, status) WHERE status = 'active';
+
+-- Space lookups
+CREATE INDEX IF NOT EXISTS idx_spaces_slug ON spaces(slug);
+
+-- =============================================================================
+-- SAVES INDEXES (critical for list/filter performance)
+-- =============================================================================
+
+-- Basic saves lookups
 CREATE INDEX IF NOT EXISTS idx_saves_space_id ON saves(space_id);
 CREATE INDEX IF NOT EXISTS idx_saves_visibility ON saves(visibility);
+
+-- Main listing query: space + sorted by saved_at (covers most list views)
+CREATE INDEX IF NOT EXISTS idx_saves_space_saved_at ON saves(space_id, saved_at DESC);
+
+-- Filtered listing queries (common filters with sort)
+CREATE INDEX IF NOT EXISTS idx_saves_space_visibility_saved_at ON saves(space_id, visibility, saved_at DESC);
+CREATE INDEX IF NOT EXISTS idx_saves_space_favorite_saved_at ON saves(space_id, is_favorite, saved_at DESC) WHERE is_favorite = true;
+CREATE INDEX IF NOT EXISTS idx_saves_space_archived_saved_at ON saves(space_id, is_archived, saved_at DESC);
+
+-- Legacy indexes (kept for compatibility, may be redundant)
 CREATE INDEX IF NOT EXISTS idx_saves_saved_at ON saves(saved_at DESC);
 CREATE INDEX IF NOT EXISTS idx_saves_space_visibility ON saves(space_id, visibility);
+
+-- =============================================================================
+-- JUNCTION TABLE INDEXES (critical for tag/collection filtering)
+-- =============================================================================
+
+-- save_tags: Primary key is (save_id, tag_id), but we also need index on tag_id
+-- for "find all saves with this tag" queries
+CREATE INDEX IF NOT EXISTS idx_save_tags_tag_id ON save_tags(tag_id);
+-- Covering index for the join pattern: tag_id lookup returning save_id
+CREATE INDEX IF NOT EXISTS idx_save_tags_tag_save ON save_tags(tag_id, save_id);
+
+-- save_collections: Primary key is (save_id, collection_id), but we also need
+-- index on collection_id for "find all saves in this collection" queries
+CREATE INDEX IF NOT EXISTS idx_save_collections_collection_id ON save_collections(collection_id);
+-- Covering index for the join pattern
+CREATE INDEX IF NOT EXISTS idx_save_collections_collection_save ON save_collections(collection_id, save_id);
+
+-- =============================================================================
+-- OTHER INDEXES
+-- =============================================================================
+
+-- Tags and collections by space
 CREATE INDEX IF NOT EXISTS idx_tags_space_id ON tags(space_id);
 CREATE INDEX IF NOT EXISTS idx_collections_space_id ON collections(space_id);
-CREATE INDEX IF NOT EXISTS idx_spaces_slug ON spaces(slug);
+
+-- Domain mappings
 CREATE INDEX IF NOT EXISTS idx_domain_mappings_domain ON domain_mappings(domain);
+CREATE INDEX IF NOT EXISTS idx_domain_mappings_space_id ON domain_mappings(space_id);
+
+-- Snapshots
 CREATE INDEX IF NOT EXISTS idx_save_snapshots_space_id ON save_snapshots(space_id);
 CREATE INDEX IF NOT EXISTS idx_save_snapshots_status ON save_snapshots(status);
 CREATE INDEX IF NOT EXISTS idx_save_snapshots_next_attempt ON save_snapshots(next_attempt_at) WHERE status IN ('pending', 'failed');
+
+-- =============================================================================
+-- SEARCH OPTIMIZATION (optional - enable pg_trgm for ILIKE performance)
+-- =============================================================================
+-- Uncomment the following to enable trigram indexes for faster ILIKE searches.
+-- This requires the pg_trgm extension and adds some write overhead.
+-- 
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- CREATE INDEX IF NOT EXISTS idx_saves_title_trgm ON saves USING gin(title gin_trgm_ops);
+-- CREATE INDEX IF NOT EXISTS idx_saves_description_trgm ON saves USING gin(description gin_trgm_ops);
+-- CREATE INDEX IF NOT EXISTS idx_saves_url_trgm ON saves USING gin(url gin_trgm_ops);
 
 -- Updated at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

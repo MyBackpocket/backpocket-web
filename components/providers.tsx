@@ -1,16 +1,22 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { httpBatchLink } from "@trpc/client";
 import { ThemeProvider, useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ROOT_DOMAIN } from "@/lib/config/public";
 import { THEME_COOKIE_NAME } from "@/lib/constants/storage";
 import { TRPC_ENDPOINT } from "@/lib/constants/trpc";
 import { getBaseUrl as getBaseUrlHelper } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
+
+// Lazy load devtools only in development to reduce production bundle size
+const ReactQueryDevtools = lazy(() =>
+  import("@tanstack/react-query-devtools").then((mod) => ({
+    default: mod.ReactQueryDevtools,
+  }))
+);
 
 function getBaseUrl() {
   return getBaseUrlHelper({
@@ -111,7 +117,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>{children}</TooltipProvider>
-          <ReactQueryDevtools initialIsOpen={false} />
+          {process.env.NODE_ENV === "development" && (
+            <Suspense fallback={null}>
+              <ReactQueryDevtools initialIsOpen={false} />
+            </Suspense>
+          )}
         </QueryClientProvider>
       </trpc.Provider>
     </ThemeProvider>

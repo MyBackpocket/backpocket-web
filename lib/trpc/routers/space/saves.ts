@@ -8,6 +8,20 @@ import { createSpaceForUser, getUserSpace } from "../../services/space";
 import { transformSave } from "../../services/transforms";
 import { protectedProcedure, router } from "../../trpc";
 
+// Columns needed for list view (avoid select(*) to reduce payload)
+const SAVE_LIST_COLUMNS = `
+  id,
+  url,
+  title,
+  description,
+  site_name,
+  image_url,
+  visibility,
+  is_archived,
+  is_favorite,
+  saved_at
+`;
+
 export const savesRouter = router({
   listSaves: protectedProcedure
     .input(
@@ -28,12 +42,35 @@ export const savesRouter = router({
         return { items: [], nextCursor: null };
       }
 
+      // For tag/collection filters, use inner join via Supabase's relation syntax
+      // This is more efficient than fetching IDs then using IN(...)
+      let selectClause = SAVE_LIST_COLUMNS;
+
+      // Build the base query with optional joins for filtering
+      if (input.tagId) {
+        // Use inner join on save_tags to filter
+        selectClause = `${SAVE_LIST_COLUMNS}, save_tags!inner(tag_id)`;
+      } else if (input.collectionId) {
+        // Use inner join on save_collections to filter
+        selectClause = `${SAVE_LIST_COLUMNS}, save_collections!inner(collection_id)`;
+      }
+
       let query = supabaseAdmin
         .from("saves")
-        .select("*")
+        .select(selectClause)
         .eq("space_id", space.id)
         .order("saved_at", { ascending: false })
         .limit(input.limit + 1);
+
+      // Apply tag filter via the joined table
+      if (input.tagId) {
+        query = query.eq("save_tags.tag_id", input.tagId);
+      }
+
+      // Apply collection filter via the joined table
+      if (input.collectionId) {
+        query = query.eq("save_collections.collection_id", input.collectionId);
+      }
 
       if (input.visibility) {
         query = query.eq("visibility", input.visibility);
@@ -45,40 +82,14 @@ export const savesRouter = router({
         query = query.eq("is_favorite", input.isFavorite);
       }
       if (input.query) {
+        // Escape special characters in search to prevent injection
+        const escapedQuery = input.query.replace(/[%_]/g, "\\$&");
         query = query.or(
-          `title.ilike.%${input.query}%,description.ilike.%${input.query}%,url.ilike.%${input.query}%`
+          `title.ilike.%${escapedQuery}%,description.ilike.%${escapedQuery}%,url.ilike.%${escapedQuery}%`
         );
       }
       if (input.cursor) {
         query = query.lt("saved_at", input.cursor);
-      }
-
-      // Handle collection filter
-      if (input.collectionId) {
-        const { data: collectionSaves } = await supabaseAdmin
-          .from("save_collections")
-          .select("save_id")
-          .eq("collection_id", input.collectionId);
-
-        const saveIds = collectionSaves?.map((cs) => cs.save_id) || [];
-        if (saveIds.length === 0) {
-          return { items: [], nextCursor: null };
-        }
-        query = query.in("id", saveIds);
-      }
-
-      // Handle tag filter
-      if (input.tagId) {
-        const { data: tagSaves } = await supabaseAdmin
-          .from("save_tags")
-          .select("save_id")
-          .eq("tag_id", input.tagId);
-
-        const saveIds = tagSaves?.map((ts) => ts.save_id) || [];
-        if (saveIds.length === 0) {
-          return { items: [], nextCursor: null };
-        }
-        query = query.in("id", saveIds);
       }
 
       const { data: saves } = await query;
@@ -87,14 +98,21 @@ export const savesRouter = router({
         return { items: [], nextCursor: null };
       }
 
-      // Get tags and collections for all saves
-      const saveIds = saves.slice(0, input.limit).map((s) => s.id);
+      // Type assertion for dynamic select clause results
+      type SaveRecord = { id: string; saved_at: string; [key: string]: unknown };
+      const typedSaves = saves as unknown as SaveRecord[];
+
+      // Get tags and collections for all saves in parallel (single query each)
+      const saveIds = typedSaves.slice(0, input.limit).map((s) => s.id);
 
       const [{ data: saveTags }, { data: saveCollections }] = await Promise.all([
-        supabaseAdmin.from("save_tags").select("save_id, tags(*)").in("save_id", saveIds),
+        supabaseAdmin
+          .from("save_tags")
+          .select("save_id, tags(id, space_id, name, created_at, updated_at)")
+          .in("save_id", saveIds),
         supabaseAdmin
           .from("save_collections")
-          .select("save_id, collections(*)")
+          .select("save_id, collections(id, space_id, name, visibility, created_at, updated_at)")
           .in("save_id", saveIds),
       ]);
 
@@ -135,7 +153,7 @@ export const savesRouter = router({
         collectionsBySaveId.set(sc.save_id, collections);
       }
 
-      const items = saves
+      const items = typedSaves
         .slice(0, input.limit)
         .map((save) =>
           transformSave(
@@ -145,8 +163,8 @@ export const savesRouter = router({
           )
         );
 
-      const hasMore = saves.length > input.limit;
-      const nextCursor = hasMore ? saves[input.limit - 1].saved_at : null;
+      const hasMore = typedSaves.length > input.limit;
+      const nextCursor = hasMore ? typedSaves[input.limit - 1].saved_at : null;
 
       return { items, nextCursor };
     }),
@@ -242,34 +260,38 @@ export const savesRouter = router({
         });
       }
 
-      // Handle tags
+      // Handle tags - batch operations to reduce roundtrips
       const tags: Tag[] = [];
       if (input.tagNames && input.tagNames.length > 0) {
-        for (const tagName of input.tagNames) {
-          const normalizedName = tagName.toLowerCase().trim();
+        const normalizedNames = [...new Set(input.tagNames.map((n) => n.toLowerCase().trim()))];
 
-          // Get or create tag
-          let { data: tag } = await supabaseAdmin
+        // Batch upsert all tags at once (uses ON CONFLICT from UNIQUE(space_id, name))
+        const { data: upsertedTags } = await supabaseAdmin
+          .from("tags")
+          .upsert(
+            normalizedNames.map((name) => ({ space_id: space.id, name })),
+            { onConflict: "space_id,name", ignoreDuplicates: false }
+          )
+          .select();
+
+        // If upsert didn't return data (some DBs don't), fetch the tags
+        let finalTags = upsertedTags;
+        if (!finalTags || finalTags.length === 0) {
+          const { data: existingTags } = await supabaseAdmin
             .from("tags")
             .select("*")
             .eq("space_id", space.id)
-            .eq("name", normalizedName)
-            .single();
+            .in("name", normalizedNames);
+          finalTags = existingTags;
+        }
 
-          if (!tag) {
-            const { data: newTag } = await supabaseAdmin
-              .from("tags")
-              .insert({ space_id: space.id, name: normalizedName })
-              .select()
-              .single();
-            tag = newTag;
-          }
+        if (finalTags && finalTags.length > 0) {
+          // Batch insert all save_tags at once
+          await supabaseAdmin
+            .from("save_tags")
+            .insert(finalTags.map((tag) => ({ save_id: save.id, tag_id: tag.id })));
 
-          if (tag) {
-            await supabaseAdmin.from("save_tags").insert({
-              save_id: save.id,
-              tag_id: tag.id,
-            });
+          for (const tag of finalTags) {
             tags.push({
               id: tag.id,
               spaceId: tag.space_id,
@@ -281,66 +303,55 @@ export const savesRouter = router({
         }
       }
 
-      // Handle collections
+      // Handle collections - batch validation and insert
       const collections: Collection[] = [];
       if (input.collectionIds && input.collectionIds.length > 0) {
-        for (const collectionId of input.collectionIds) {
-          const { data: collection } = await supabaseAdmin
-            .from("collections")
-            .select("*")
-            .eq("id", collectionId)
-            .eq("space_id", space.id)
-            .single();
+        // Validate all collections belong to space in single query
+        const { data: validCollections } = await supabaseAdmin
+          .from("collections")
+          .select("*")
+          .eq("space_id", space.id)
+          .in("id", input.collectionIds);
 
-          if (collection) {
-            await supabaseAdmin.from("save_collections").insert({
-              save_id: save.id,
-              collection_id: collection.id,
-            });
+        if (validCollections && validCollections.length > 0) {
+          // Batch insert all save_collections at once
+          await supabaseAdmin
+            .from("save_collections")
+            .insert(validCollections.map((col) => ({ save_id: save.id, collection_id: col.id })));
+
+          for (const col of validCollections) {
             collections.push({
-              id: collection.id,
-              spaceId: collection.space_id,
-              name: collection.name,
-              visibility: collection.visibility,
-              createdAt: new Date(collection.created_at),
-              updatedAt: new Date(collection.updated_at),
+              id: col.id,
+              spaceId: col.space_id,
+              name: col.name,
+              visibility: col.visibility,
+              createdAt: new Date(col.created_at),
+              updatedAt: new Date(col.updated_at),
             });
           }
         }
       }
 
-      // Create snapshot job if snapshots are enabled
-      console.log(`[saves] SNAPSHOTS_ENABLED=${SNAPSHOTS_ENABLED}, save.id=${save.id}`);
+      // Create snapshot job if snapshots are enabled (fire and forget)
       if (SNAPSHOTS_ENABLED) {
-        console.log(`[saves] Creating snapshot record for save=${save.id}`);
-        // Create the snapshot record
-        const { error: snapshotInsertError } = await supabaseAdmin.from("save_snapshots").insert({
-          save_id: save.id,
-          space_id: space.id,
-          status: "pending",
-        });
-
-        if (snapshotInsertError) {
-          console.error(`[saves] Failed to insert snapshot record:`, snapshotInsertError);
-        } else {
-          console.log(`[saves] Snapshot record created, enqueuing job...`);
-        }
-
-        // Enqueue the snapshot job (fire and forget - don't block save creation)
-        enqueueSnapshotJob(save.id, space.id, input.url)
-          .then((result) => {
-            console.log(`[saves] enqueueSnapshotJob returned:`, result);
-            if (result.ok) {
-              console.log(`[saves] Snapshot job enqueued: messageId=${result.messageId}`);
-            } else {
-              console.error(`[saves] Failed to enqueue snapshot job: ${result.error}`);
+        // Create the snapshot record and enqueue job (async, don't block response)
+        (async () => {
+          try {
+            const { error } = await supabaseAdmin.from("save_snapshots").insert({
+              save_id: save.id,
+              space_id: space.id,
+              status: "pending",
+            });
+            if (error) {
+              console.error("[saves] Snapshot record error:", error);
+              return;
             }
-          })
-          .catch((err) => {
-            console.error("[saves] Snapshot job threw exception:", err);
-          });
-      } else {
-        console.log(`[saves] Snapshots disabled, skipping`);
+            // Enqueue the snapshot job after record is created
+            await enqueueSnapshotJob(save.id, space.id, input.url);
+          } catch (err) {
+            console.error("[saves] Snapshot error:", err);
+          }
+        })();
       }
 
       return transformSave(save, tags, collections);
@@ -380,89 +391,136 @@ export const savesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Save not found" });
       }
 
-      // Update tags if provided
+      // Update tags if provided - batch operations
+      let tags: Tag[] = [];
       if (input.tagNames !== undefined) {
-        // Remove existing tags
+        // Remove existing tags first
         await supabaseAdmin.from("save_tags").delete().eq("save_id", save.id);
 
-        // Add new tags
-        for (const tagName of input.tagNames) {
-          const normalizedName = tagName.toLowerCase().trim();
+        if (input.tagNames.length > 0) {
+          const normalizedNames = [...new Set(input.tagNames.map((n) => n.toLowerCase().trim()))];
 
-          let { data: tag } = await supabaseAdmin
+          // Batch upsert all tags
+          const { data: upsertedTags } = await supabaseAdmin
             .from("tags")
-            .select("*")
-            .eq("space_id", space.id)
-            .eq("name", normalizedName)
-            .single();
+            .upsert(
+              normalizedNames.map((name) => ({ space_id: space.id, name })),
+              { onConflict: "space_id,name", ignoreDuplicates: false }
+            )
+            .select();
 
-          if (!tag) {
-            const { data: newTag } = await supabaseAdmin
+          let finalTags = upsertedTags;
+          if (!finalTags || finalTags.length === 0) {
+            const { data: existingTags } = await supabaseAdmin
               .from("tags")
-              .insert({ space_id: space.id, name: normalizedName })
-              .select()
-              .single();
-            tag = newTag;
+              .select("*")
+              .eq("space_id", space.id)
+              .in("name", normalizedNames);
+            finalTags = existingTags;
           }
 
-          if (tag) {
-            await supabaseAdmin.from("save_tags").insert({
-              save_id: save.id,
-              tag_id: tag.id,
-            });
+          if (finalTags && finalTags.length > 0) {
+            // Batch insert all save_tags
+            await supabaseAdmin
+              .from("save_tags")
+              .insert(finalTags.map((tag) => ({ save_id: save.id, tag_id: tag.id })));
+
+            tags = finalTags.map((tag) => ({
+              id: tag.id,
+              spaceId: tag.space_id,
+              name: tag.name,
+              createdAt: new Date(tag.created_at),
+              updatedAt: new Date(tag.updated_at),
+            }));
           }
         }
       }
 
-      // Update collections if provided
+      // Update collections if provided - batch operations
+      let collections: Collection[] = [];
       if (input.collectionIds !== undefined) {
-        // Remove existing collections
+        // Remove existing collections first
         await supabaseAdmin.from("save_collections").delete().eq("save_id", save.id);
 
-        // Add new collections
-        for (const collectionId of input.collectionIds) {
-          await supabaseAdmin.from("save_collections").insert({
-            save_id: save.id,
-            collection_id: collectionId,
-          });
+        if (input.collectionIds.length > 0) {
+          // Validate all collections belong to space
+          const { data: validCollections } = await supabaseAdmin
+            .from("collections")
+            .select("*")
+            .eq("space_id", space.id)
+            .in("id", input.collectionIds);
+
+          if (validCollections && validCollections.length > 0) {
+            // Batch insert all save_collections
+            await supabaseAdmin
+              .from("save_collections")
+              .insert(validCollections.map((col) => ({ save_id: save.id, collection_id: col.id })));
+
+            collections = validCollections.map((col) => ({
+              id: col.id,
+              spaceId: col.space_id,
+              name: col.name,
+              visibility: col.visibility as "private" | "public",
+              createdAt: new Date(col.created_at),
+              updatedAt: new Date(col.updated_at),
+            }));
+          }
         }
       }
 
-      // Fetch updated save with relations
-      const [{ data: saveTags }, { data: saveCollections }] = await Promise.all([
-        supabaseAdmin.from("save_tags").select("tags(*)").eq("save_id", save.id),
-        supabaseAdmin.from("save_collections").select("collections(*)").eq("save_id", save.id),
-      ]);
+      // If tags/collections weren't updated, fetch current ones
+      if (input.tagNames === undefined || input.collectionIds === undefined) {
+        const [{ data: saveTags }, { data: saveCollections }] = await Promise.all([
+          input.tagNames === undefined
+            ? supabaseAdmin
+                .from("save_tags")
+                .select("tags(id, space_id, name, created_at, updated_at)")
+                .eq("save_id", save.id)
+            : Promise.resolve({ data: null }),
+          input.collectionIds === undefined
+            ? supabaseAdmin
+                .from("save_collections")
+                .select("collections(id, space_id, name, visibility, created_at, updated_at)")
+                .eq("save_id", save.id)
+            : Promise.resolve({ data: null }),
+        ]);
 
-      const tags: Tag[] = (saveTags || [])
-        .filter((st) => st.tags && typeof st.tags === "object" && !Array.isArray(st.tags))
-        .map((st) => {
-          const tag = st.tags as unknown as Record<string, unknown>;
-          return {
-            id: tag.id as string,
-            spaceId: tag.space_id as string,
-            name: tag.name as string,
-            createdAt: new Date(tag.created_at as string),
-            updatedAt: new Date(tag.updated_at as string),
-          };
-        });
+        if (input.tagNames === undefined && saveTags) {
+          tags = saveTags
+            .filter((st) => st.tags && typeof st.tags === "object" && !Array.isArray(st.tags))
+            .map((st) => {
+              const tag = st.tags as unknown as Record<string, unknown>;
+              return {
+                id: tag.id as string,
+                spaceId: tag.space_id as string,
+                name: tag.name as string,
+                createdAt: new Date(tag.created_at as string),
+                updatedAt: new Date(tag.updated_at as string),
+              };
+            });
+        }
 
-      const collections: Collection[] = (saveCollections || [])
-        .filter(
-          (sc) =>
-            sc.collections && typeof sc.collections === "object" && !Array.isArray(sc.collections)
-        )
-        .map((sc) => {
-          const col = sc.collections as unknown as Record<string, unknown>;
-          return {
-            id: col.id as string,
-            spaceId: col.space_id as string,
-            name: col.name as string,
-            visibility: col.visibility as "private" | "public",
-            createdAt: new Date(col.created_at as string),
-            updatedAt: new Date(col.updated_at as string),
-          };
-        });
+        if (input.collectionIds === undefined && saveCollections) {
+          collections = saveCollections
+            .filter(
+              (sc) =>
+                sc.collections &&
+                typeof sc.collections === "object" &&
+                !Array.isArray(sc.collections)
+            )
+            .map((sc) => {
+              const col = sc.collections as unknown as Record<string, unknown>;
+              return {
+                id: col.id as string,
+                spaceId: col.space_id as string,
+                name: col.name as string,
+                visibility: col.visibility as "private" | "public",
+                createdAt: new Date(col.created_at as string),
+                updatedAt: new Date(col.updated_at as string),
+              };
+            });
+        }
+      }
 
       return transformSave(save, tags, collections);
     }),
@@ -475,7 +533,23 @@ export const savesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Space not found" });
       }
 
-      // Get current value if not provided
+      // If value is explicitly provided, update directly (skip read)
+      if (input.value !== undefined) {
+        const { data: save, error } = await supabaseAdmin
+          .from("saves")
+          .update({ is_favorite: input.value })
+          .eq("id", input.saveId)
+          .eq("space_id", space.id)
+          .select(SAVE_LIST_COLUMNS)
+          .single();
+
+        if (error || !save) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Save not found" });
+        }
+        return transformSave(save);
+      }
+
+      // Otherwise need to read current value to toggle
       const { data: current } = await supabaseAdmin
         .from("saves")
         .select("is_favorite")
@@ -487,14 +561,12 @@ export const savesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Save not found" });
       }
 
-      const newValue = input.value ?? !current.is_favorite;
-
       const { data: save, error } = await supabaseAdmin
         .from("saves")
-        .update({ is_favorite: newValue })
+        .update({ is_favorite: !current.is_favorite })
         .eq("id", input.saveId)
         .eq("space_id", space.id)
-        .select()
+        .select(SAVE_LIST_COLUMNS)
         .single();
 
       if (error || !save) {
@@ -512,7 +584,23 @@ export const savesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Space not found" });
       }
 
-      // Get current value if not provided
+      // If value is explicitly provided, update directly (skip read)
+      if (input.value !== undefined) {
+        const { data: save, error } = await supabaseAdmin
+          .from("saves")
+          .update({ is_archived: input.value })
+          .eq("id", input.saveId)
+          .eq("space_id", space.id)
+          .select(SAVE_LIST_COLUMNS)
+          .single();
+
+        if (error || !save) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Save not found" });
+        }
+        return transformSave(save);
+      }
+
+      // Otherwise need to read current value to toggle
       const { data: current } = await supabaseAdmin
         .from("saves")
         .select("is_archived")
@@ -524,14 +612,12 @@ export const savesRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Save not found" });
       }
 
-      const newValue = input.value ?? !current.is_archived;
-
       const { data: save, error } = await supabaseAdmin
         .from("saves")
-        .update({ is_archived: newValue })
+        .update({ is_archived: !current.is_archived })
         .eq("id", input.saveId)
         .eq("space_id", space.id)
-        .select()
+        .select(SAVE_LIST_COLUMNS)
         .single();
 
       if (error || !save) {

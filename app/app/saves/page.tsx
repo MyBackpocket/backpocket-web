@@ -1,5 +1,6 @@
 "use client";
 
+import { keepPreviousData } from "@tanstack/react-query";
 import {
   Archive,
   Bookmark,
@@ -53,6 +54,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { routes } from "@/lib/constants/routes";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { trpc } from "@/lib/trpc/client";
 import type { APISave, SaveVisibility } from "@/lib/types";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
@@ -395,8 +397,11 @@ export default function SavesPage() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [singleDeleteTarget, setSingleDeleteTarget] = useState<APISave | null>(null);
 
+  // Debounce search to avoid firing on every keystroke (300ms delay)
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
   const queryOptions = {
-    query: searchQuery || undefined,
+    query: debouncedSearch || undefined,
     isArchived: filter === "archived" ? true : filter === "all" ? undefined : false,
     isFavorite: filter === "favorites" ? true : undefined,
     visibility:
@@ -405,24 +410,27 @@ export default function SavesPage() {
         : filter === "private"
           ? ("private" as SaveVisibility)
           : undefined,
-    limit: 50,
+    // Reduced from 50 to 20 for faster initial loads
+    limit: 20,
   };
 
-  const { data, isLoading } = trpc.space.listSaves.useQuery(queryOptions);
+  const { data, isLoading, isFetching } = trpc.space.listSaves.useQuery(queryOptions, {
+    // Keep previous data visible while fetching new data (avoids UI thrash)
+    placeholderData: keepPreviousData,
+  });
   const utils = trpc.useUtils();
 
   const toggleFavorite = trpc.space.toggleFavorite.useMutation({
     onSuccess: () => {
+      // Invalidate list to reflect the change
       utils.space.listSaves.invalidate();
       utils.space.getStats.invalidate();
-      utils.space.getDashboardData.invalidate();
     },
   });
 
   const toggleArchive = trpc.space.toggleArchive.useMutation({
     onSuccess: () => {
       utils.space.listSaves.invalidate();
-      utils.space.getDashboardData.invalidate();
     },
   });
 
@@ -464,7 +472,7 @@ export default function SavesPage() {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(data.items.map((s) => s.id)));
+      setSelectedIds(new Set(data.items.map((s: APISave) => s.id)));
     }
   };
 
@@ -562,8 +570,12 @@ export default function SavesPage() {
             placeholder="Search saves..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 pr-10"
           />
+          {/* Subtle loading indicator for background fetches */}
+          {isFetching && !isLoading && (
+            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -616,7 +628,7 @@ export default function SavesPage() {
       ) : data?.items && data.items.length > 0 ? (
         viewMode === "list" ? (
           <div className="space-y-3">
-            {data.items.map((save) => (
+            {data.items.map((save: APISave) => (
               <SaveListItem
                 key={save.id}
                 save={save}
@@ -631,7 +643,7 @@ export default function SavesPage() {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {data.items.map((save) => (
+            {data.items.map((save: APISave) => (
               <SaveGridCard
                 key={save.id}
                 save={save}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { ClerkProvider } from "@/components/clerk-provider";
 import { Providers } from "@/components/providers";
+import { WebVitals } from "@/components/web-vitals";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -47,6 +48,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body className={`${dmSans.variable} ${fraunces.variable} font-sans antialiased`}>
+          <WebVitals />
           <Providers>{children}</Providers>
         </body>
       </html>
