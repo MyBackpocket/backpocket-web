@@ -57,6 +57,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/sanitize-html": "^2.16.0",
     "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3"
   },
@@ -67,5 +68,8 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json,css,md}": "biome check --write --no-errors-on-unmatched"
+  }
 }
