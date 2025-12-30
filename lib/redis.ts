@@ -3,6 +3,9 @@ import { Redis } from "@upstash/redis";
 // Lazy initialization to avoid build-time errors
 let _redis: Redis | null = null;
 let _redisAvailable: boolean | null = null;
+let _redisWarningLogged = false;
+
+const IS_DEV = process.env.NODE_ENV === "development";
 
 function isRedisConfigured(): boolean {
   if (_redisAvailable !== null) return _redisAvailable;
@@ -10,6 +13,20 @@ function isRedisConfigured(): boolean {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   _redisAvailable = !!(url && token);
   return _redisAvailable;
+}
+
+/**
+ * Log a warning once (dev only) when Redis operations are attempted without config.
+ * Helps surface "silent no-op" issues during development.
+ */
+function warnRedisNotConfigured(operation: string): void {
+  if (IS_DEV && !_redisWarningLogged) {
+    _redisWarningLogged = true;
+    console.warn(
+      `[redis] ⚠️ Redis not configured (missing UPSTASH_REDIS_REST_URL/TOKEN). ` +
+        `Operation "${operation}" will no-op. Visit counters and rate limiting won't work.`
+    );
+  }
 }
 
 function getRedis(): Redis | null {
@@ -30,6 +47,7 @@ export const redis = new Proxy({} as Redis, {
     const client = getRedis();
     if (!client) {
       // Return no-op functions when Redis isn't configured
+      warnRedisNotConfigured(String(prop));
       return () => Promise.resolve(null);
     }
     const value = (client as unknown as Record<string, unknown>)[prop as string];
@@ -48,18 +66,39 @@ export const dailyVisitKey = (spaceId: string, date: string) => `visits:${spaceI
 export async function incrementVisitCount(spaceId: string): Promise<number> {
   const today = new Date().toISOString().split("T")[0];
 
-  // Increment both total and daily counts
-  const [total] = await Promise.all([
-    redis.incr(visitCountKey(spaceId)),
-    redis.incr(dailyVisitKey(spaceId, today)),
-  ]);
+  try {
+    // Increment both total and daily counts
+    const [total] = await Promise.all([
+      redis.incr(visitCountKey(spaceId)),
+      redis.incr(dailyVisitKey(spaceId, today)),
+    ]);
 
-  return total;
+    // Handle null (Redis not configured) - return 0 as a safe fallback
+    if (total === null) {
+      return 0;
+    }
+
+    return total;
+  } catch (error) {
+    // Log error in dev, fail gracefully in prod
+    if (IS_DEV) {
+      console.error("[redis] incrementVisitCount failed:", error);
+    }
+    return 0;
+  }
 }
 
 export async function getVisitCount(spaceId: string): Promise<number> {
-  const count = await redis.get<number>(visitCountKey(spaceId));
-  return count ?? 0;
+  try {
+    const count = await redis.get<number>(visitCountKey(spaceId));
+    return count ?? 0;
+  } catch (error) {
+    // Log error in dev, fail gracefully in prod
+    if (IS_DEV) {
+      console.error("[redis] getVisitCount failed:", error);
+    }
+    return 0;
+  }
 }
 
 // Rate limiting helpers

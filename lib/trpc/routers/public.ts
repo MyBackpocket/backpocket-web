@@ -165,8 +165,8 @@ export const publicRouter = router({
   registerVisit: publicProcedure
     .input(z.object({ spaceId: z.string(), path: z.string() }))
     .mutation(async ({ input }) => {
-      await incrementVisitCount(input.spaceId);
-      return { ok: true };
+      const newTotal = await incrementVisitCount(input.spaceId);
+      return { ok: true, visitCount: newTotal };
     }),
 
   getVisitCount: publicProcedure

@@ -1,16 +1,16 @@
-import { Bookmark, Calendar, ExternalLink, Eye, Rss } from "lucide-react";
+import { Bookmark, Calendar, ExternalLink, Rss } from "lucide-react";
 import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
-import { VisitTracker } from "@/components/visit-tracker";
+import { VisitorCounter } from "@/components/visitor-counter";
 import { SPACE_SLUG_HEADER } from "@/lib/constants/headers";
 import { MARKETING_URL } from "@/lib/constants/links";
 import { PUBLIC_LIST_LIMIT } from "@/lib/constants/public-space";
 import { createCaller } from "@/lib/trpc/caller";
 import type { PublicSave, PublicSpace } from "@/lib/types";
-import { formatDate, formatNumber, getDomainFromUrl } from "@/lib/utils";
+import { formatDate, getDomainFromUrl } from "@/lib/utils";
 
 async function getSpaceData(
   slug: string
@@ -87,9 +87,6 @@ export default async function PublicSpacePage() {
 
   return (
     <div className="min-h-screen bg-gradient-denim">
-      {/* Track visit */}
-      <VisitTracker spaceId={space.id} />
-
       {/* Header */}
       <header className="border-b border-denim/15 bg-background/80 backdrop-blur-md">
         <div className="mx-auto max-w-5xl px-6 py-8">
@@ -118,12 +115,9 @@ export default async function PublicSpacePage() {
               </div>
             </div>
 
-            {/* Visitor counter + RSS */}
+            {/* Visitor counter (live-updating) + RSS */}
             <div className="flex items-center gap-3">
-              <div className="visitor-counter">
-                <Eye className="h-4 w-4" />
-                <span>{formatNumber(space.visitCount)} visits</span>
-              </div>
+              <VisitorCounter spaceId={space.id} initialCount={space.visitCount} />
               <Link
                 href={`${basePath}/rss.xml`}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-rust transition-colors"
