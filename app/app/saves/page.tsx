@@ -85,39 +85,42 @@ function SaveListItem({
         isSelected && "border-primary/50 bg-primary/5 shadow-denim"
       )}
     >
-      {/* Checkbox - always in flow, visibility controlled */}
-      <div
-        className={cn(
-          "flex items-center transition-all duration-200",
-          isSelectionMode
-            ? "w-5 opacity-100"
-            : "w-0 overflow-hidden opacity-0 group-hover:w-5 group-hover:opacity-100"
-        )}
-      >
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={onSelect}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
+      {/* Thumbnail with checkbox overlay */}
+      <div className="relative shrink-0">
+        {/* Checkbox overlay on thumbnail */}
+        <div
+          className={cn(
+            "absolute left-2 top-2 z-10 transition-all duration-200",
+            isSelectionMode
+              ? "opacity-100 scale-100"
+              : "opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
+          )}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelect}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-background/90 backdrop-blur-sm shadow-sm"
+          />
+        </div>
 
-      {/* Thumbnail */}
-      <Link href={`/app/saves/${save.id}`} className="shrink-0 overflow-hidden rounded-lg">
-        {save.imageUrl ? (
-          <div className="relative h-20 w-32 overflow-hidden rounded-lg bg-muted">
-            <Image
-              src={save.imageUrl}
-              alt=""
-              fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-          </div>
-        ) : (
-          <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-muted/50">
-            <Bookmark className="h-8 w-8 text-muted-foreground/40" />
-          </div>
-        )}
-      </Link>
+        <Link href={`/app/saves/${save.id}`} className="block overflow-hidden rounded-lg">
+          {save.imageUrl ? (
+            <div className="relative h-20 w-32 overflow-hidden rounded-lg bg-muted">
+              <Image
+                src={save.imageUrl}
+                alt=""
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            </div>
+          ) : (
+            <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-muted/50">
+              <Bookmark className="h-8 w-8 text-muted-foreground/40" />
+            </div>
+          )}
+        </Link>
+      </div>
 
       {/* Content */}
       <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
@@ -240,19 +243,17 @@ function SaveGridCard({
   isSelectionMode,
   onSelect,
   onToggleFavorite,
-  onDelete,
 }: {
   save: APISave;
   isSelected: boolean;
   isSelectionMode: boolean;
   onSelect: () => void;
   onToggleFavorite: () => void;
-  onDelete: () => void;
 }) {
   const visibilityConfig = {
-    public: { icon: Eye, class: "tag-mint" },
-    private: { icon: EyeOff, class: "tag-denim" },
-    unlisted: { icon: Link2, class: "tag-amber" },
+    public: { icon: Eye, label: "Public", class: "tag-mint" },
+    private: { icon: EyeOff, label: "Private", class: "tag-denim" },
+    unlisted: { icon: Link2, label: "Unlisted", class: "tag-amber" },
   };
 
   const vis = visibilityConfig[save.visibility];
@@ -282,6 +283,12 @@ function SaveGridCard({
         />
       </div>
 
+      {/* Visibility badge overlay */}
+      <Badge className={cn("absolute right-3 top-3 z-10 gap-1 text-xs shadow-sm", vis.class)}>
+        <VisIcon className="h-3 w-3" />
+        {vis.label}
+      </Badge>
+
       {/* Favorite button overlay */}
       <Button
         variant="ghost"
@@ -291,7 +298,7 @@ function SaveGridCard({
           onToggleFavorite();
         }}
         className={cn(
-          "absolute right-3 top-3 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm shadow-sm transition-all duration-200",
+          "absolute right-3 top-11 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm shadow-sm transition-all duration-200",
           save.isFavorite ? "opacity-100 text-amber" : "opacity-0 group-hover:opacity-100"
         )}
       >
@@ -327,14 +334,9 @@ function SaveGridCard({
           <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{save.description}</p>
         )}
 
-        <div className="mt-3 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Globe className="h-3 w-3" />
-            {getDomainFromUrl(save.url)}
-          </span>
-          <Badge className={cn("gap-1 text-xs", vis.class)}>
-            <VisIcon className="h-3 w-3" />
-          </Badge>
+        <div className="mt-3 flex items-center text-xs text-muted-foreground">
+          <Globe className="h-3 w-3 mr-1.5" />
+          {getDomainFromUrl(save.url)}
         </div>
       </div>
     </Card>
@@ -622,11 +624,6 @@ export default function SavesPage() {
                 isSelectionMode={isSelectionMode}
                 onSelect={() => toggleSelect(save.id)}
                 onToggleFavorite={() => toggleFavorite.mutate({ saveId: save.id })}
-                onDelete={() => {
-                  if (confirm("Are you sure you want to delete this save?")) {
-                    deleteSave.mutate({ saveId: save.id });
-                  }
-                }}
               />
             ))}
           </div>
