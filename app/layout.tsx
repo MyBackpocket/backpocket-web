@@ -1,3 +1,4 @@
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { ClerkProvider } from "@/components/clerk-provider";
@@ -49,6 +50,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <body className={`${dmSans.variable} ${fraunces.variable} font-sans antialiased`}>
           <WebVitals />
+          <SpeedInsights />
           <Providers>{children}</Providers>
         </body>
       </html>
