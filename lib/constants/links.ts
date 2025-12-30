@@ -13,4 +13,6 @@ export const MARKETING_URL = "https://backpocket.my";
 export const externalLinks = {
   /** Mozilla's Pocket shutdown announcement */
   pocketShutdown: "https://support.mozilla.org/en-US/kb/future-of-pocket",
+  /** Browser extension GitHub repository */
+  browserExtensionRepo: "https://github.com/MyBackpocket/backpocket-browser-extension",
 } as const;
