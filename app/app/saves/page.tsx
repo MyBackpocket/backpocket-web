@@ -13,6 +13,7 @@ import {
   Grid3X3,
   Link2,
   List,
+  Loader2,
   MoreHorizontal,
   Plus,
   Search,
@@ -27,6 +28,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -383,6 +392,8 @@ export default function SavesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<APISave | null>(null);
 
   const queryOptions = {
     query: searchQuery || undefined,
@@ -463,12 +474,22 @@ export default function SavesPage() {
 
   const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (
-      confirm(
-        `Are you sure you want to delete ${selectedIds.size} save${selectedIds.size > 1 ? "s" : ""}? This action cannot be undone.`
-      )
-    ) {
-      bulkDeleteSaves.mutate({ saveIds: Array.from(selectedIds) });
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = () => {
+    bulkDeleteSaves.mutate({ saveIds: Array.from(selectedIds) });
+    setShowBulkDeleteDialog(false);
+  };
+
+  const handleSingleDelete = (save: APISave) => {
+    setSingleDeleteTarget(save);
+  };
+
+  const confirmSingleDelete = () => {
+    if (singleDeleteTarget) {
+      deleteSave.mutate({ saveId: singleDeleteTarget.id });
+      setSingleDeleteTarget(null);
     }
   };
 
@@ -604,11 +625,7 @@ export default function SavesPage() {
                 onSelect={() => toggleSelect(save.id)}
                 onToggleFavorite={() => toggleFavorite.mutate({ saveId: save.id })}
                 onToggleArchive={() => toggleArchive.mutate({ saveId: save.id })}
-                onDelete={() => {
-                  if (confirm("Are you sure you want to delete this save?")) {
-                    deleteSave.mutate({ saveId: save.id });
-                  }
-                }}
+                onDelete={() => handleSingleDelete(save)}
               />
             ))}
           </div>
@@ -647,6 +664,75 @@ export default function SavesPage() {
           )}
         </div>
       )}
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {selectedIds.size} save{selectedIds.size > 1 ? "s" : ""}?
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete {selectedIds.size} save{selectedIds.size > 1 ? "s" : ""}.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmBulkDelete}
+              disabled={bulkDeleteSaves.isPending}
+            >
+              {bulkDeleteSaves.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                `Delete ${selectedIds.size}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Single Delete Confirmation Dialog */}
+      <Dialog
+        open={!!singleDeleteTarget}
+        onOpenChange={(open) => !open && setSingleDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this save?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete "{singleDeleteTarget?.title || singleDeleteTarget?.url}".
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSingleDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmSingleDelete}
+              disabled={deleteSave.isPending}
+            >
+              {deleteSave.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
