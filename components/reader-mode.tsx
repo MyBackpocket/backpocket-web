@@ -241,7 +241,9 @@ export function ReaderMode({
 
   // Ready state with content
   if (status === "ready" && content) {
-    const readingTime = content.length ? Math.max(1, Math.ceil(content.length / 200)) : null;
+    // Calculate reading time based on word count (average reading speed: ~200 words/min)
+    const wordCount = content.textContent?.split(/\s+/).filter(Boolean).length || 0;
+    const readingTime = wordCount ? Math.max(1, Math.ceil(wordCount / 200)) : null;
 
     return (
       <Card>

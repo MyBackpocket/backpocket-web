@@ -193,7 +193,14 @@ export default async function PublicSavePermalinkPage({
                   {snapshot.content.length && (
                     <Badge variant="secondary" className="gap-1">
                       <Clock className="h-3 w-3" />
-                      {Math.max(1, Math.ceil(snapshot.content.length / 200))} min read
+                      {Math.max(
+                        1,
+                        Math.ceil(
+                          (snapshot.content.textContent?.split(/\s+/).filter(Boolean).length || 0) /
+                            200
+                        )
+                      )}{" "}
+                      min read
                     </Badge>
                   )}
                 </div>
