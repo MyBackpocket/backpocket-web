@@ -35,6 +35,11 @@ export type Context = {
  * - In development without mock mode: uses Clerk if configured, otherwise null (fail closed)
  * - In production/staging: always uses Clerk; if not configured or auth fails, userId is null
  *
+ * Mobile support:
+ * - Clerk's auth() helper automatically reads Authorization: Bearer <token> headers
+ * - Mobile apps send JWT tokens via Bearer header, which Clerk validates
+ * - No special handling needed - auth() works the same for web cookies and mobile tokens
+ *
  * The spaceCache is request-scoped to avoid cross-request state leakage.
  */
 export const createContext = async (): Promise<Context> => {
@@ -50,11 +55,19 @@ export const createContext = async (): Promise<Context> => {
   }
 
   // Try Clerk authentication
+  // Clerk's auth() helper automatically handles:
+  // 1. Session cookies from web browser requests
+  // 2. Bearer tokens from mobile/API clients via Authorization header
+  // Both are validated against Clerk's JWKS
   if (isClerkConfigured) {
     try {
       const { auth } = await import("@clerk/nextjs/server");
       const authResult = await auth();
       userId = authResult.userId;
+
+      if (IS_DEVELOPMENT && userId) {
+        console.log("[auth] Authenticated user:", userId.slice(0, 10) + "...");
+      }
     } catch (e) {
       // Auth failed - fail closed (userId stays null)
       if (IS_DEVELOPMENT) {
