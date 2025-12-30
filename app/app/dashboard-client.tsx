@@ -119,6 +119,7 @@ export default function DashboardClient() {
             title="Public Saves"
             value={formatNumber(stats?.publicSaves ?? 0)}
             icon={Globe}
+            href={savesWithFilter("public")}
           />
           <StatCard
             title="Favorites"

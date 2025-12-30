@@ -57,6 +57,9 @@ export const query = {
     key: "filter",
     values: {
       favorites: "favorites",
+      public: "public",
+      private: "private",
+      archived: "archived",
     },
   },
 } as const;

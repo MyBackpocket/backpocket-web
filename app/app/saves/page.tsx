@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -390,9 +391,16 @@ function SavesSkeleton({ viewMode }: { viewMode: ViewMode }) {
 }
 
 export default function SavesPage() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter");
+  const validFilters: FilterType[] = ["all", "favorites", "archived", "public", "private"];
+  const initialFilter = validFilters.includes(filterParam as FilterType)
+    ? (filterParam as FilterType)
+    : "all";
+
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<FilterType>("all");
+  const [filter, setFilter] = useState<FilterType>(initialFilter);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [singleDeleteTarget, setSingleDeleteTarget] = useState<APISave | null>(null);
