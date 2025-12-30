@@ -69,8 +69,10 @@ export async function enqueueSnapshotJob(
 ): Promise<EnqueueResult> {
   console.log(`[snapshots] ========== enqueueSnapshotJob called ==========`);
   console.log(`[snapshots] saveId=${saveId}, url=${url}`);
-  console.log(`[snapshots] SNAPSHOTS_ENABLED=${SNAPSHOTS_ENABLED}, IS_DEVELOPMENT=${IS_DEVELOPMENT}`);
-  
+  console.log(
+    `[snapshots] SNAPSHOTS_ENABLED=${SNAPSHOTS_ENABLED}, IS_DEVELOPMENT=${IS_DEVELOPMENT}`
+  );
+
   if (!SNAPSHOTS_ENABLED) {
     console.log(`[snapshots] Returning early: snapshots disabled`);
     return { ok: false, error: "Snapshots are disabled" };

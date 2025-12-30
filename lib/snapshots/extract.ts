@@ -1,9 +1,12 @@
 /**
  * Readability extraction utilities
+ *
+ * Uses linkedom instead of jsdom for better Next.js serverless compatibility.
+ * linkedom is ~50x faster and has proper ESM support.
  */
 
 import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 import { SNAPSHOT_EXCERPT_LENGTH, SNAPSHOT_MAX_TEXT_LENGTH } from "@/lib/constants/snapshots";
 import type { SnapshotContent } from "@/lib/types";
 
@@ -24,16 +27,12 @@ export type ReadabilityResult = ExtractResult | ExtractError;
  */
 export function extractReadableContent(html: string, url: string): ReadabilityResult {
   try {
-    // Parse HTML with jsdom
-    const dom = new JSDOM(html, {
-      url,
-      // Don't execute scripts
-      runScripts: undefined,
-      // Don't load external resources
-      resources: undefined,
-    });
+    // Parse HTML with linkedom (faster and better serverless compatibility than jsdom)
+    const { document } = parseHTML(html);
 
-    const document = dom.window.document;
+    // Set the document URL for relative link resolution
+    // linkedom doesn't have a URL option, so we handle it in the content if needed
+    Object.defineProperty(document, "baseURI", { value: url, writable: false });
 
     // Check for noarchive in the parsed DOM (more accurate)
     const metaTags = document.querySelectorAll('meta[name="robots"]');
@@ -102,9 +101,6 @@ export function extractReadableContent(html: string, url: string): ReadabilityRe
       language,
     };
 
-    // Cleanup
-    dom.window.close();
-
     return { ok: true, content };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown extraction error";
@@ -127,8 +123,7 @@ export function extractMetadata(
   canonicalUrl: string | null;
 } {
   try {
-    const dom = new JSDOM(html, { url });
-    const document = dom.window.document;
+    const { document } = parseHTML(html);
 
     // Title: og:title > twitter:title > title tag
     const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute("content");
@@ -186,8 +181,6 @@ export function extractMetadata(
         canonicalUrl = null;
       }
     }
-
-    dom.window.close();
 
     return { title, description, siteName, imageUrl, canonicalUrl };
   } catch {
