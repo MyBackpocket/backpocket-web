@@ -276,12 +276,15 @@ export default function SavesPage() {
   const toggleFavorite = trpc.space.toggleFavorite.useMutation({
     onSuccess: () => {
       utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
     },
   });
 
   const toggleArchive = trpc.space.toggleArchive.useMutation({
     onSuccess: () => {
       utils.space.listSaves.invalidate();
+      utils.space.getDashboardData.invalidate();
     },
   });
 

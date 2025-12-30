@@ -83,6 +83,8 @@ function NewSaveForm() {
     searchParams.get("collection") || ""
   );
 
+  const utils = trpc.useUtils();
+
   // Update state if search params change
   useEffect(() => {
     const urlParam = searchParams.get("url");
@@ -98,6 +100,10 @@ function NewSaveForm() {
 
   const createSave = trpc.space.createSave.useMutation({
     onSuccess: () => {
+      // Invalidate caches so the UI updates immediately
+      utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
       router.push("/app/saves");
     },
   });

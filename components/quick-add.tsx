@@ -53,12 +53,17 @@ export function QuickAdd() {
     enabled: open,
   });
 
+  const utils = trpc.useUtils();
+
   const createSave = trpc.space.createSave.useMutation({
     onSuccess: () => {
       setState("success");
+      // Invalidate caches so the UI updates immediately
+      utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
       setTimeout(() => {
         resetAndClose();
-        router.refresh();
       }, 1000);
     },
     onError: () => {

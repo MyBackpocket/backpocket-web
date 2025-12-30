@@ -110,6 +110,9 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
     },
     onSettled: () => {
       utils.space.getSave.invalidate({ saveId });
+      utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
     },
   });
 
@@ -142,18 +145,27 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
     },
     onSettled: () => {
       utils.space.getSave.invalidate({ saveId });
+      utils.space.listSaves.invalidate();
+      utils.space.getDashboardData.invalidate();
     },
   });
 
   const deleteSave = trpc.space.deleteSave.useMutation({
     onSuccess: () => {
+      // Invalidate caches so lists show updated data immediately
+      utils.space.listSaves.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.getDashboardData.invalidate();
       router.push(routes.app.saves);
     },
   });
 
   const updateSave = trpc.space.updateSave.useMutation({
     onSuccess: () => {
+      // Invalidate caches so lists show updated data immediately
       utils.space.getSave.invalidate({ saveId });
+      utils.space.listSaves.invalidate();
+      utils.space.getDashboardData.invalidate();
       setShowEditDialog(false);
     },
   });
