@@ -377,10 +377,19 @@ export default function HomePage() {
                 </div>
                 <h3 className="mb-1 text-lg font-semibold">iOS</h3>
                 <p className="text-sm text-muted-foreground">iPhone & iPad</p>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col items-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-denim/10 px-3 py-1 text-xs font-medium text-denim">
-                    Planned
+                    In Development
                   </span>
+                  <a
+                    href={externalLinks.mobileAppRepo}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Github className="h-3.5 w-3.5" />
+                    View source
+                  </a>
                 </div>
               </div>
             </div>
@@ -394,10 +403,19 @@ export default function HomePage() {
                 </div>
                 <h3 className="mb-1 text-lg font-semibold">Android</h3>
                 <p className="text-sm text-muted-foreground">Phone & Tablet</p>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col items-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-denim/10 px-3 py-1 text-xs font-medium text-denim">
-                    Planned
+                    In Development
                   </span>
+                  <a
+                    href={externalLinks.mobileAppRepo}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Github className="h-3.5 w-3.5" />
+                    View source
+                  </a>
                 </div>
               </div>
             </div>

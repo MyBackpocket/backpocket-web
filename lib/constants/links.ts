@@ -15,4 +15,6 @@ export const externalLinks = {
   pocketShutdown: "https://support.mozilla.org/en-US/kb/future-of-pocket",
   /** Browser extension GitHub repository */
   browserExtensionRepo: "https://github.com/MyBackpocket/backpocket-browser-extension",
+  /** Mobile app GitHub repository */
+  mobileAppRepo: "https://github.com/MyBackpocket/backpocket-mobile",
 } as const;
