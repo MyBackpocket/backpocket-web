@@ -20,7 +20,7 @@ import ChromeLogo from "@/assets/img/Chrome-Logo.svg";
 import FirefoxLogo from "@/assets/img/Firefox-Logo.svg";
 import { SignedIn, SignedOut } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
-import { ThemeSwitcherCompact } from "@/components/theme-switcher";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { TypewriterUrl } from "@/components/typewriter-url";
 import { Button } from "@/components/ui/button";
 import { externalLinks } from "@/lib/constants/links";
@@ -37,6 +37,7 @@ export default function HomePage() {
           </Link>
 
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             <SignedOut>
               <Link href={routes.signIn}>
                 <Button variant="ghost" size="sm">
@@ -186,8 +187,8 @@ export default function HomePage() {
               </div>
               <h3 className="mb-2 text-xl font-semibold">One honest metric</h3>
               <p className="text-muted-foreground">
-                A simple visitor counter shows total visits. No tracking, no cookies, no analytics —
-                just a count.
+                A simple visitor counter shows total visits. No cookies, no fingerprinting — just a
+                count to help you see your reach.
               </p>
             </div>
 
@@ -229,7 +230,6 @@ export default function HomePage() {
                 { label: "No comments", color: "tag-mint" },
                 { label: "No feed", color: "tag-teal" },
                 { label: "No algorithms", color: "tag-amber" },
-                { label: "No tracking", color: "tag-denim" },
               ].map((item) => (
                 <span
                   key={item.label}
@@ -282,9 +282,8 @@ export default function HomePage() {
               <p>
                 <span className="font-medium text-foreground">backpocket</span> is our answer. Built
                 for the people who miss what Pocket offered — and for anyone who wants a calm,
-                focused way to save and share their finds. No social features, no tracking, no
-                algorithms. Just your collection, beautifully organized and optionally shared at
-                your own URL.
+                focused way to save and share their finds. No social features, no algorithms. Just
+                your collection, beautifully organized and optionally shared at your own URL.
               </p>
             </div>
 
@@ -479,12 +478,17 @@ export default function HomePage() {
               <Logo size="md" />
             </Link>
 
-            <div className="flex items-center gap-4">
-              <ThemeSwitcherCompact />
-              <p className="text-sm text-muted-foreground">
-                © {new Date().getFullYear()} backpocket
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()}{" "}
+              <a
+                href="https://mariolopez.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-muted-foreground/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground/50"
+              >
+                Mario Lopez Martinez
+              </a>
+            </p>
           </div>
         </div>
       </footer>
