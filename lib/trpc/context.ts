@@ -66,7 +66,7 @@ export const createContext = async (): Promise<Context> => {
       userId = authResult.userId;
 
       if (IS_DEVELOPMENT && userId) {
-        console.log("[auth] Authenticated user:", userId.slice(0, 10) + "...");
+        console.log("[auth] Authenticated user:", `${userId.slice(0, 10)}...`);
       }
     } catch (e) {
       // Auth failed - fail closed (userId stays null)
