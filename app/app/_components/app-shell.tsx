@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { Space } from "@/lib/types";
+import type { DomainMapping, Space } from "@/lib/types";
 import { AppSidebar } from "./app-sidebar";
 import { MobileHeader } from "./mobile-header";
 
 interface AppShellProps {
   space: Space | null;
+  domains?: DomainMapping[];
   children: React.ReactNode;
 }
 
@@ -14,7 +15,7 @@ interface AppShellProps {
  * Client-side shell that manages mobile navigation state.
  * Space data is passed from the server to avoid client-side fetch waterfall.
  */
-export function AppShell({ space, children }: AppShellProps) {
+export function AppShell({ space, domains = [], children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
@@ -28,7 +29,12 @@ export function AppShell({ space, children }: AppShellProps) {
       )}
 
       {/* Sidebar */}
-      <AppSidebar space={space} isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      <AppSidebar
+        space={space}
+        domains={domains}
+        isOpen={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+      />
 
       {/* Main content */}
       <div className="lg:pl-64">
