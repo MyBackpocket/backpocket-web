@@ -17,6 +17,7 @@ import { useState } from "react";
 import { UserButton } from "@/components/auth-components";
 import { Logo } from "@/components/logo";
 import { QuickAdd } from "@/components/quick-add";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { IS_DEVELOPMENT, ROOT_DOMAIN } from "@/lib/config/public";
 import { routes } from "@/lib/constants/routes";
 import { buildSpaceHostname, buildSpaceUrl } from "@/lib/constants/urls";
@@ -143,13 +144,18 @@ export function AppSidebar({ space, domains = [], isOpen, onClose }: AppSidebarP
           <Link href={routes.app.root} className="flex items-center gap-2">
             <Logo size="md" />
           </Link>
-          <button
-            type="button"
-            className="lg:hidden text-muted-foreground hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <div className="hidden lg:block">
+              <ThemeSwitcher />
+            </div>
+            <button
+              type="button"
+              className="lg:hidden text-muted-foreground hover:text-foreground"
+              onClick={onClose}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Quick Add Button */}
