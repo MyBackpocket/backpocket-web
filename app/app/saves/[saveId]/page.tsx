@@ -285,11 +285,19 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           Back to saves
         </Link>
 
-        {/* Image */}
+        {/* Image - links to source */}
         {save.imageUrl && (
-          <div className="relative mb-6 aspect-video overflow-hidden rounded-xl border">
+          <a
+            href={save.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group/image relative mb-6 block aspect-video overflow-hidden rounded-xl border transition-all hover:shadow-lg"
+          >
             <Image src={save.imageUrl} alt="" fill className="object-cover" />
-          </div>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/image:bg-black/10">
+              <ExternalLink className="h-8 w-8 text-white opacity-0 drop-shadow-lg transition-opacity group-hover/image:opacity-100" />
+            </div>
+          </a>
         )}
 
         {/* Title and actions */}

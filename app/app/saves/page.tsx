@@ -116,22 +116,26 @@ function SaveListItem({
           />
         </div>
 
-        <Link href={`/app/saves/${save.id}`} className="block overflow-hidden rounded-lg">
+        <a
+          href={save.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="group/thumb block overflow-hidden rounded-lg"
+        >
           {save.imageUrl ? (
             <div className="relative h-20 w-32 overflow-hidden rounded-lg bg-muted">
-              <Image
-                src={save.imageUrl}
-                alt=""
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+              <Image src={save.imageUrl} alt="" fill className="object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/thumb:bg-black/20">
+                <ExternalLink className="h-5 w-5 text-white opacity-0 drop-shadow-lg transition-opacity group-hover/thumb:opacity-100" />
+              </div>
             </div>
           ) : (
-            <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-linear-to-br from-muted to-muted/50">
+            <div className="flex h-20 w-32 items-center justify-center rounded-lg bg-linear-to-br from-muted to-muted/50 transition-colors group-hover/thumb:bg-muted">
               <Bookmark className="h-8 w-8 text-muted-foreground/40" />
             </div>
           )}
-        </Link>
+        </a>
       </div>
 
       {/* Content */}
@@ -309,22 +313,31 @@ function SaveGridCard({
         <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
       </Button>
 
-      <Link href={`/app/saves/${save.id}`}>
+      <a
+        href={save.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="group/thumb block"
+      >
         {save.imageUrl ? (
           <div className="relative aspect-video w-full overflow-hidden bg-muted">
             <Image
               src={save.imageUrl}
               alt=""
               fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover transition-transform duration-300 group-hover/thumb:scale-105"
             />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/thumb:bg-black/20">
+              <ExternalLink className="h-8 w-8 text-white opacity-0 drop-shadow-lg transition-opacity group-hover/thumb:opacity-100" />
+            </div>
           </div>
         ) : (
-          <div className="flex aspect-video w-full items-center justify-center bg-linear-to-br from-muted to-muted/50">
+          <div className="flex aspect-video w-full items-center justify-center bg-linear-to-br from-muted to-muted/50 transition-colors group-hover/thumb:bg-muted/70">
             <Bookmark className="h-10 w-10 text-muted-foreground/30" />
           </div>
         )}
-      </Link>
+      </a>
 
       <div className="p-4">
         <Link

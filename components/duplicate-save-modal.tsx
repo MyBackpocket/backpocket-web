@@ -94,13 +94,18 @@ export function DuplicateSaveModal({
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 pt-2">
           <div className="flex gap-2">
-            <Button asChild className="flex-1">
+            <Button asChild className="flex-1" onClick={() => onOpenChange(false)}>
               <Link href={routes.app.save(duplicateSave.id)}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Save
               </Link>
             </Button>
-            <Button variant="outline" asChild className="flex-1">
+            <Button
+              variant="outline"
+              asChild
+              className="flex-1"
+              onClick={() => onOpenChange(false)}
+            >
               <Link href={`${routes.app.save(duplicateSave.id)}?edit=true`}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
