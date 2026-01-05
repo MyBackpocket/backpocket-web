@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -283,6 +284,9 @@ export default async function PublicSavePermalinkPage({
           </div>
         </div>
       </footer>
+
+      {/* Scroll to top button */}
+      <ScrollToTop />
     </div>
   );
 }

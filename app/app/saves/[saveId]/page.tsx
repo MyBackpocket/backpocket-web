@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useState } from "react";
 import { ReaderMode } from "@/components/reader-mode";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -820,6 +821,9 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Scroll to top button */}
+        <ScrollToTop />
       </div>
     </div>
   );
