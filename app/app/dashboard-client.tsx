@@ -1,17 +1,38 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { ArrowUpRight, Bookmark, Eye, FolderOpen, Globe, Plus, Star, Tags } from "lucide-react";
+import {
+  Archive,
+  ArrowUpRight,
+  Bookmark,
+  Eye,
+  FolderOpen,
+  Globe,
+  Loader2,
+  Plus,
+  Star,
+  Tags,
+  Trash2,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IS_DEVELOPMENT, ROOT_DOMAIN } from "@/lib/config/public";
 import { routes, savesWithFilter } from "@/lib/constants/routes";
 import { buildSpaceHostname, buildSpaceUrl } from "@/lib/constants/urls";
 import { trpc } from "@/lib/trpc/client";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 function StatCard({
   title,
@@ -62,9 +83,9 @@ function StatsSkeleton() {
 
 function RecentSavesSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="flex items-start gap-4 rounded-lg p-2">
+        <div key={i} className="flex items-center gap-4 rounded-lg p-2">
           <Skeleton className="h-12 w-16 shrink-0 rounded-md" />
           <div className="flex-1 min-w-0 space-y-2">
             <Skeleton className="h-5 w-3/4" />
@@ -78,9 +99,38 @@ function RecentSavesSkeleton() {
 
 export default function DashboardClient() {
   const { user, isLoaded: userLoaded } = useUser();
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title: string | null;
+    url: string;
+  } | null>(null);
 
   // Single query that fetches all dashboard data at once
   const { data: dashboardData, isLoading } = trpc.space.getDashboardData.useQuery();
+  const utils = trpc.useUtils();
+
+  const toggleFavorite = trpc.space.toggleFavorite.useMutation({
+    onSuccess: () => {
+      utils.space.getDashboardData.invalidate();
+      utils.space.getStats.invalidate();
+    },
+  });
+
+  const toggleArchive = trpc.space.toggleArchive.useMutation({
+    onSuccess: () => {
+      utils.space.getDashboardData.invalidate();
+      utils.space.listSaves.invalidate();
+    },
+  });
+
+  const deleteSave = trpc.space.deleteSave.useMutation({
+    onSuccess: () => {
+      setDeleteTarget(null);
+      utils.space.getDashboardData.invalidate();
+      utils.space.getStats.invalidate();
+      utils.space.listSaves.invalidate();
+    },
+  });
 
   const stats = dashboardData?.stats;
   const space = dashboardData?.space;
@@ -181,37 +231,94 @@ export default function DashboardClient() {
             {isLoading ? (
               <RecentSavesSkeleton />
             ) : recentSaves && recentSaves.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-1">
                 {recentSaves.map((save) => (
-                  <Link
+                  <div
                     key={save.id}
-                    href={routes.app.save(save.id)}
-                    className="flex items-start gap-4 rounded-lg p-2 transition-colors hover:bg-accent"
+                    className="group relative flex items-center rounded-lg p-2 transition-all duration-200 hover:bg-accent"
                   >
-                    {save.imageUrl ? (
-                      <div className="relative h-12 w-16 shrink-0">
-                        <Image
-                          src={save.imageUrl}
-                          alt=""
-                          fill
-                          className="rounded-md object-cover"
-                        />
+                    {/* Thumbnail */}
+                    <Link href={routes.app.save(save.id)} className="shrink-0">
+                      {save.imageUrl ? (
+                        <div className="relative h-12 w-16 rounded-md overflow-hidden">
+                          <Image src={save.imageUrl} alt="" fill className="object-cover" />
+                        </div>
+                      ) : (
+                        <div className="flex h-12 w-16 items-center justify-center rounded-md bg-muted">
+                          <Bookmark className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </Link>
+
+                    {/* Content with gradient fade */}
+                    <Link
+                      href={routes.app.save(save.id)}
+                      className="flex-1 min-w-0 ml-4 mr-2 relative"
+                    >
+                      <div className="relative">
+                        <p className="font-medium truncate pr-8 group-hover:pr-0">
+                          {save.title || save.url}
+                        </p>
+                        {/* Gradient fade overlay on hover */}
+                        <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-accent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
                       </div>
-                    ) : (
-                      <div className="flex h-12 w-16 items-center justify-center rounded-md bg-muted">
-                        <Bookmark className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{save.title || save.url}</p>
                       <p className="text-sm text-muted-foreground truncate">
                         {save.siteName || new URL(save.url).hostname}
                       </p>
+                    </Link>
+
+                    {/* Action buttons container - slides in from right */}
+                    <div className="flex items-center shrink-0">
+                      {/* Archive & Delete - hidden by default, slide in on hover */}
+                      <div className="flex items-center gap-0.5 overflow-hidden transition-all duration-200 ease-out w-0 opacity-0 group-hover:w-[68px] group-hover:opacity-100">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            toggleArchive.mutate({ saveId: save.id });
+                          }}
+                          className={cn(
+                            "h-8 w-8 rounded-lg text-muted-foreground hover:text-denim",
+                            save.isArchived && "bg-denim/10 text-denim"
+                          )}
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setDeleteTarget({
+                              id: save.id,
+                              title: save.title,
+                              url: save.url,
+                            });
+                          }}
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {/* Star button - always visible, part of the sliding group */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleFavorite.mutate({ saveId: save.id });
+                        }}
+                        className={cn(
+                          "h-8 w-8 rounded-lg transition-colors",
+                          save.isFavorite && "text-amber"
+                        )}
+                      >
+                        <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
+                      </Button>
                     </div>
-                    {save.isFavorite && (
-                      <Star className="h-4 w-4 shrink-0 fill-yellow-400 text-yellow-400" />
-                    )}
-                  </Link>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -277,6 +384,42 @@ export default function DashboardClient() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this save?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete "{deleteTarget?.title || deleteTarget?.url}". This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteSave.mutate({ saveId: deleteTarget.id });
+                }
+              }}
+              disabled={deleteSave.isPending}
+            >
+              {deleteSave.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
