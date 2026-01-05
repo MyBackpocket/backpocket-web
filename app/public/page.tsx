@@ -67,25 +67,32 @@ function PublicSpaceContent() {
 
   // Fetch slug from headers on mount (from middleware)
   useEffect(() => {
-    // The slug is in a meta tag set by the layout, or we can infer from subdomain
-    const hostname = window.location.hostname;
-    const parts = hostname.split(".");
+    // First priority: check the meta tag set by server layout
+    // This handles custom domains correctly (e.g., "custom:backpocket.mariolopez.org")
+    const metaSlug = document.querySelector('meta[name="x-space-slug"]')?.getAttribute("content");
+    if (metaSlug) {
+      setSpaceSlug(metaSlug);
+      return;
+    }
 
-    // Check for custom domain or subdomain
-    if (parts.length >= 2) {
-      // Could be subdomain.domain.tld or custom.domain
-      // For now, assume first part is the slug for subdomains
-      const potentialSlug = parts[0];
-      if (potentialSlug !== "www" && potentialSlug !== "localhost") {
-        setSpaceSlug(potentialSlug);
+    // Fallback: infer from subdomain for known patterns
+    const hostname = window.location.hostname;
+
+    // Check for subdomain pattern: {slug}.backpocket.my or {slug}.localhost
+    if (hostname.endsWith(".backpocket.my")) {
+      const slug = hostname.replace(".backpocket.my", "");
+      if (slug && slug !== "www") {
+        setSpaceSlug(slug);
         return;
       }
     }
 
-    // Fallback: try to get from document if server set it
-    const metaSlug = document.querySelector('meta[name="x-space-slug"]')?.getAttribute("content");
-    if (metaSlug) {
-      setSpaceSlug(metaSlug);
+    if (hostname.endsWith(".localhost")) {
+      const slug = hostname.split(".localhost")[0];
+      if (slug && slug !== "www") {
+        setSpaceSlug(slug);
+        return;
+      }
     }
   }, []);
 

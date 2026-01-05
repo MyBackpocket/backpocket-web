@@ -57,6 +57,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function PublicSpaceLayout({ children }: { children: React.ReactNode }) {
-  return children;
+export default async function PublicSpaceLayout({ children }: { children: React.ReactNode }) {
+  const headersList = await headers();
+  const spaceSlug = headersList.get(SPACE_SLUG_HEADER);
+
+  return (
+    <>
+      {/* Pass the space slug to client components via meta tag */}
+      {spaceSlug && <meta name="x-space-slug" content={spaceSlug} />}
+      {children}
+    </>
+  );
 }
