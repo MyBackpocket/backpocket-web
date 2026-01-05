@@ -117,7 +117,7 @@ async function backfill() {
   const duplicates: Duplicate[] = [];
   for (const [key, savesForKey] of seen.entries()) {
     if (savesForKey.length > 1) {
-      const [spaceId, normalizedUrl] = key.split(":", 2);
+      const [spaceId, _normalizedUrl] = key.split(":", 2);
       duplicates.push({
         spaceId,
         normalizedUrl: key.substring(spaceId.length + 1),
@@ -126,7 +126,7 @@ async function backfill() {
     }
   }
 
-  console.log("\n" + "=".repeat(60));
+  console.log(`\n${"=".repeat(60)}`);
   console.log("SUMMARY");
   console.log("=".repeat(60));
   console.log(`✅ Processed: ${processed}`);
@@ -134,7 +134,7 @@ async function backfill() {
   console.log(`🔄 Duplicates found: ${duplicates.length}`);
 
   if (duplicates.length > 0) {
-    console.log("\n" + "=".repeat(60));
+    console.log(`\n${"=".repeat(60)}`);
     console.log("DUPLICATES DETECTED");
     console.log("=".repeat(60));
     console.log("\nThe following URLs have multiple saves (keep the oldest, delete the rest):\n");

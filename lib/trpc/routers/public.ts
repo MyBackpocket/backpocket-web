@@ -62,6 +62,9 @@ export const publicRouter = router({
     .input(
       z.object({
         spaceId: z.string(),
+        query: z.string().optional(),
+        tagName: z.string().optional(),
+        collectionId: z.string().optional(),
         cursor: z.string().optional(),
         limit: z
           .number()
@@ -71,6 +74,34 @@ export const publicRouter = router({
       })
     )
     .query(async ({ input }) => {
+      // For tag/collection filtering, first get the filtered save IDs
+      let filteredSaveIds: string[] | null = null;
+
+      if (input.tagName) {
+        // Get save IDs that have the specified tag
+        const { data: taggedSaves } = await supabaseAdmin
+          .from("save_tags")
+          .select("save_id, tags!inner(name)")
+          .eq("tags.name", input.tagName.toLowerCase());
+
+        if (!taggedSaves || taggedSaves.length === 0) {
+          return { items: [], nextCursor: null };
+        }
+        filteredSaveIds = taggedSaves.map((ts) => ts.save_id);
+      } else if (input.collectionId) {
+        // Get save IDs in the specified collection
+        const { data: collectionSaves } = await supabaseAdmin
+          .from("save_collections")
+          .select("save_id")
+          .eq("collection_id", input.collectionId);
+
+        if (!collectionSaves || collectionSaves.length === 0) {
+          return { items: [], nextCursor: null };
+        }
+        filteredSaveIds = collectionSaves.map((cs) => cs.save_id);
+      }
+
+      // Build the main query
       let query = supabaseAdmin
         .from("saves")
         .select("*")
@@ -80,13 +111,26 @@ export const publicRouter = router({
         .order("saved_at", { ascending: false })
         .limit(input.limit + 1);
 
+      // Apply tag/collection filter
+      if (filteredSaveIds) {
+        query = query.in("id", filteredSaveIds);
+      }
+
+      // Apply search query
+      if (input.query) {
+        const escapedQuery = input.query.replace(/[%_]/g, "\\$&");
+        query = query.or(
+          `title.ilike.%${escapedQuery}%,description.ilike.%${escapedQuery}%,url.ilike.%${escapedQuery}%`
+        );
+      }
+
       if (input.cursor) {
         query = query.lt("saved_at", input.cursor);
       }
 
       const { data: saves } = await query;
 
-      if (!saves) {
+      if (!saves || saves.length === 0) {
         return { items: [], nextCursor: null };
       }
 
@@ -97,13 +141,13 @@ export const publicRouter = router({
         .select("save_id, tags(id, name)")
         .in("save_id", saveIds);
 
-      const tagsByaSaveId = new Map<string, string[]>();
+      const tagsBySaveId = new Map<string, string[]>();
       for (const st of saveTags || []) {
-        const tags = tagsByaSaveId.get(st.save_id) || [];
+        const tags = tagsBySaveId.get(st.save_id) || [];
         if (st.tags && typeof st.tags === "object" && "name" in st.tags) {
           tags.push((st.tags as { name: string }).name);
         }
-        tagsByaSaveId.set(st.save_id, tags);
+        tagsBySaveId.set(st.save_id, tags);
       }
 
       const items: PublicSave[] = saves.slice(0, input.limit).map((save) => ({
@@ -114,7 +158,7 @@ export const publicRouter = router({
         siteName: save.site_name,
         imageUrl: save.image_url,
         savedAt: new Date(save.saved_at),
-        tags: tagsByaSaveId.get(save.id),
+        tags: tagsBySaveId.get(save.id),
       }));
 
       const hasMore = saves.length > input.limit;
@@ -160,6 +204,108 @@ export const publicRouter = router({
         savedAt: new Date(save.saved_at),
         tags,
       };
+    }),
+
+  /**
+   * List tags that have at least one public save in the space
+   */
+  listPublicTags: publicProcedure
+    .input(z.object({ spaceId: z.string() }))
+    .query(async ({ input }) => {
+      // First get public, non-archived save IDs for this space
+      const { data: publicSaves } = await supabaseAdmin
+        .from("saves")
+        .select("id")
+        .eq("space_id", input.spaceId)
+        .eq("visibility", "public")
+        .eq("is_archived", false);
+
+      if (!publicSaves || publicSaves.length === 0) {
+        return [];
+      }
+
+      const publicSaveIds = publicSaves.map((s) => s.id);
+
+      // Get tags for these saves
+      const { data: saveTags } = await supabaseAdmin
+        .from("save_tags")
+        .select("tags(id, name)")
+        .in("save_id", publicSaveIds);
+
+      if (!saveTags || saveTags.length === 0) {
+        return [];
+      }
+
+      // Aggregate counts by tag
+      const countMap = new Map<string, { name: string; count: number }>();
+      for (const row of saveTags) {
+        if (row.tags && typeof row.tags === "object" && "name" in row.tags) {
+          const tag = row.tags as unknown as { id: string; name: string };
+          const existing = countMap.get(tag.name);
+          if (existing) {
+            existing.count++;
+          } else {
+            countMap.set(tag.name, { name: tag.name, count: 1 });
+          }
+        }
+      }
+
+      // Sort by count descending, then alphabetically
+      return Array.from(countMap.values()).sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.name.localeCompare(b.name);
+      });
+    }),
+
+  /**
+   * List collections containing at least one public save
+   */
+  listPublicCollections: publicProcedure
+    .input(z.object({ spaceId: z.string() }))
+    .query(async ({ input }) => {
+      // First get public, non-archived save IDs for this space
+      const { data: publicSaves } = await supabaseAdmin
+        .from("saves")
+        .select("id")
+        .eq("space_id", input.spaceId)
+        .eq("visibility", "public")
+        .eq("is_archived", false);
+
+      if (!publicSaves || publicSaves.length === 0) {
+        return [];
+      }
+
+      const publicSaveIds = publicSaves.map((s) => s.id);
+
+      // Get collections for these saves
+      const { data: saveCollections } = await supabaseAdmin
+        .from("save_collections")
+        .select("collections(id, name)")
+        .in("save_id", publicSaveIds);
+
+      if (!saveCollections || saveCollections.length === 0) {
+        return [];
+      }
+
+      // Aggregate counts by collection
+      const countMap = new Map<string, { id: string; name: string; count: number }>();
+      for (const row of saveCollections) {
+        if (row.collections && typeof row.collections === "object" && "id" in row.collections) {
+          const col = row.collections as unknown as { id: string; name: string };
+          const existing = countMap.get(col.id);
+          if (existing) {
+            existing.count++;
+          } else {
+            countMap.set(col.id, { id: col.id, name: col.name, count: 1 });
+          }
+        }
+      }
+
+      // Sort by count descending, then alphabetically
+      return Array.from(countMap.values()).sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.name.localeCompare(b.name);
+      });
     }),
 
   registerVisit: publicProcedure

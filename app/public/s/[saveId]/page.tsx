@@ -165,13 +165,18 @@ export default async function PublicSavePermalinkPage({
             </span>
           </div>
 
-          {/* Tags */}
+          {/* Tags - clickable to filter */}
           {save.tags && save.tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {save.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                </Badge>
+                <Link key={tag} href={`/?tag=${encodeURIComponent(tag)}`}>
+                  <Badge
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-denim/20 transition-colors"
+                  >
+                    {tag}
+                  </Badge>
+                </Link>
               ))}
             </div>
           )}
