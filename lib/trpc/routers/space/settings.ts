@@ -79,7 +79,7 @@ export const settingsRouter = router({
         avatarUrl: z.string().optional(),
         visibility: z.enum(["public", "private"]).optional(),
         publicLayout: z.enum(["list", "grid"]).optional(),
-        defaultSaveVisibility: z.enum(["private", "public", "unlisted"]).optional(),
+        defaultSaveVisibility: z.enum(["private", "public"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

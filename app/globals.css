@@ -831,6 +831,115 @@ html {
   background: hsl(var(--teal) / 0.3);
 }
 
+/* ========================================
+   READER MODE DARK MODE FIXES
+   Ensure prose content is legible in dark mode
+   ======================================== */
+
+/* Dark mode prose text colors - system preference */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .prose {
+    --tw-prose-body: hsl(40 30% 88%);
+    --tw-prose-headings: hsl(40 35% 95%);
+    --tw-prose-lead: hsl(40 25% 75%);
+    --tw-prose-links: hsl(var(--amber));
+    --tw-prose-bold: hsl(40 35% 95%);
+    --tw-prose-counters: hsl(40 20% 65%);
+    --tw-prose-bullets: hsl(40 15% 50%);
+    --tw-prose-hr: hsl(203 18% 25%);
+    --tw-prose-quotes: hsl(40 30% 85%);
+    --tw-prose-quote-borders: hsl(var(--amber) / 0.5);
+    --tw-prose-captions: hsl(40 20% 65%);
+    --tw-prose-th-borders: hsl(203 18% 30%);
+    --tw-prose-td-borders: hsl(203 18% 22%);
+  }
+
+  :root:not(.light) .prose p,
+  :root:not(.light) .prose li,
+  :root:not(.light) .prose span,
+  :root:not(.light) .prose div {
+    color: hsl(40 30% 88%);
+  }
+
+  :root:not(.light) .prose h1,
+  :root:not(.light) .prose h2,
+  :root:not(.light) .prose h3,
+  :root:not(.light) .prose h4,
+  :root:not(.light) .prose h5,
+  :root:not(.light) .prose h6 {
+    color: hsl(40 35% 95%);
+  }
+
+  :root:not(.light) .prose strong,
+  :root:not(.light) .prose b {
+    color: hsl(40 35% 95%);
+  }
+
+  :root:not(.light) .prose blockquote {
+    color: hsl(40 25% 80%);
+    border-left-color: hsl(var(--amber) / 0.5);
+  }
+
+  :root:not(.light) .prose a {
+    color: hsl(var(--amber));
+  }
+
+  :root:not(.light) .prose a:hover {
+    color: hsl(37 80% 75%);
+  }
+}
+
+/* Dark mode prose text colors - class toggle */
+.dark .prose {
+  --tw-prose-body: hsl(40 30% 88%);
+  --tw-prose-headings: hsl(40 35% 95%);
+  --tw-prose-lead: hsl(40 25% 75%);
+  --tw-prose-links: hsl(var(--amber));
+  --tw-prose-bold: hsl(40 35% 95%);
+  --tw-prose-counters: hsl(40 20% 65%);
+  --tw-prose-bullets: hsl(40 15% 50%);
+  --tw-prose-hr: hsl(203 18% 25%);
+  --tw-prose-quotes: hsl(40 30% 85%);
+  --tw-prose-quote-borders: hsl(var(--amber) / 0.5);
+  --tw-prose-captions: hsl(40 20% 65%);
+  --tw-prose-th-borders: hsl(203 18% 30%);
+  --tw-prose-td-borders: hsl(203 18% 22%);
+}
+
+.dark .prose p,
+.dark .prose li,
+.dark .prose span,
+.dark .prose div {
+  color: hsl(40 30% 88%);
+}
+
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose h5,
+.dark .prose h6 {
+  color: hsl(40 35% 95%);
+}
+
+.dark .prose strong,
+.dark .prose b {
+  color: hsl(40 35% 95%);
+}
+
+.dark .prose blockquote {
+  color: hsl(40 25% 80%);
+  border-left-color: hsl(var(--amber) / 0.5);
+}
+
+.dark .prose a {
+  color: hsl(var(--amber));
+}
+
+.dark .prose a:hover {
+  color: hsl(37 80% 75%);
+}
+
 /* KBD element styling (keyboard shortcuts) */
 .prose kbd {
   background: linear-gradient(180deg, hsl(210 15% 25%), hsl(210 15% 18%));

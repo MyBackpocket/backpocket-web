@@ -190,14 +190,14 @@ This is the most important endpoint for browser extensions and share sheets.
 
 **Input Schema:**
 
-| Field           | Type                                  | Required | Default     | Description                                 |
-| --------------- | ------------------------------------- | -------- | ----------- | ------------------------------------------- |
-| `url`           | `string`                              | ✅ Yes   | -           | Valid URL to save                           |
-| `title`         | `string`                              | ❌ No    | null        | Custom title (auto-fetched if not provided) |
-| `visibility`    | `"private" \| "public" \| "unlisted"` | ❌ No    | `"private"` | Save visibility                             |
-| `tagNames`      | `string[]`                            | ❌ No    | `[]`        | Tag names to attach (auto-created)          |
-| `collectionIds` | `string[]`                            | ❌ No    | `[]`        | Collection IDs to add to                    |
-| `note`          | `string`                              | ❌ No    | null        | Description/notes                           |
+| Field           | Type                    | Required | Default     | Description                                 |
+| --------------- | ----------------------- | -------- | ----------- | ------------------------------------------- |
+| `url`           | `string`                | ✅ Yes   | -           | Valid URL to save                           |
+| `title`         | `string`                | ❌ No    | null        | Custom title (auto-fetched if not provided) |
+| `visibility`    | `"private" \| "public"` | ❌ No    | `"private"` | Save visibility                             |
+| `tagNames`      | `string[]`              | ❌ No    | `[]`        | Tag names to attach (auto-created)          |
+| `collectionIds` | `string[]`              | ❌ No    | `[]`        | Collection IDs to add to                    |
+| `note`          | `string`                | ❌ No    | null        | Description/notes                           |
 
 **Response:**
 
@@ -259,16 +259,16 @@ This is the most important endpoint for browser extensions and share sheets.
 
 **Input Schema:**
 
-| Field          | Type                                  | Required | Default | Description                     |
-| -------------- | ------------------------------------- | -------- | ------- | ------------------------------- |
-| `query`        | `string`                              | ❌ No    | -       | Search in title/description/url |
-| `visibility`   | `"private" \| "public" \| "unlisted"` | ❌ No    | -       | Filter by visibility            |
-| `isArchived`   | `boolean`                             | ❌ No    | -       | Filter archived saves           |
-| `isFavorite`   | `boolean`                             | ❌ No    | -       | Filter favorites                |
-| `collectionId` | `string`                              | ❌ No    | -       | Filter by collection            |
-| `tagId`        | `string`                              | ❌ No    | -       | Filter by tag                   |
-| `cursor`       | `string`                              | ❌ No    | -       | Pagination cursor (ISO date)    |
-| `limit`        | `number`                              | ❌ No    | 20      | Results per page (1-50)         |
+| Field          | Type                    | Required | Default | Description                     |
+| -------------- | ----------------------- | -------- | ------- | ------------------------------- |
+| `query`        | `string`                | ❌ No    | -       | Search in title/description/url |
+| `visibility`   | `"private" \| "public"` | ❌ No    | -       | Filter by visibility            |
+| `isArchived`   | `boolean`               | ❌ No    | -       | Filter archived saves           |
+| `isFavorite`   | `boolean`               | ❌ No    | -       | Filter favorites                |
+| `collectionId` | `string`                | ❌ No    | -       | Filter by collection            |
+| `tagId`        | `string`                | ❌ No    | -       | Filter by tag                   |
+| `cursor`       | `string`                | ❌ No    | -       | Pagination cursor (ISO date)    |
+| `limit`        | `number`                | ❌ No    | 20      | Results per page (1-50)         |
 
 **Response:**
 
@@ -596,14 +596,14 @@ Max 100 saves per request.
 
 All fields are optional.
 
-| Field                   | Type                                  | Description                      |
-| ----------------------- | ------------------------------------- | -------------------------------- |
-| `name`                  | `string`                              | Display name for public space    |
-| `bio`                   | `string`                              | Short description                |
-| `avatarUrl`             | `string`                              | Avatar image URL                 |
-| `visibility`            | `"public" \| "private"`               | Space visibility                 |
-| `publicLayout`          | `"list" \| "grid"`                    | How saves are displayed publicly |
-| `defaultSaveVisibility` | `"private" \| "public" \| "unlisted"` | Default visibility for new saves |
+| Field                   | Type                    | Description                      |
+| ----------------------- | ----------------------- | -------------------------------- |
+| `name`                  | `string`                | Display name for public space    |
+| `bio`                   | `string`                | Short description                |
+| `avatarUrl`             | `string`                | Avatar image URL                 |
+| `visibility`            | `"public" \| "private"` | Space visibility                 |
+| `publicLayout`          | `"list" \| "grid"`      | How saves are displayed publicly |
+| `defaultSaveVisibility` | `"private" \| "public"` | Default visibility for new saves |
 
 ---
 
@@ -964,7 +964,7 @@ These endpoints don't require authentication and are used for public space pages
 
 ```typescript
 // === Enums ===
-type SaveVisibility = "private" | "public" | "unlisted";
+type SaveVisibility = "private" | "public";
 type SpaceVisibility = "public" | "private";
 type PublicLayout = "list" | "grid";
 type SnapshotStatus = "pending" | "processing" | "ready" | "failed" | "blocked";
@@ -1254,6 +1254,18 @@ All `public.*` endpoints are unauthenticated and suitable for:
 - [Clerk Browser Extension SDK](https://clerk.com/docs/references/chrome-extension/overview)
 - [Clerk React Native SDK](https://clerk.com/docs/references/react-native/overview)
 - [WXT Framework](https://wxt.dev/)
+
+---
+
+## Changelog
+
+### 2026-01-05
+
+#### Changed
+
+- **Simplified Visibility:** Removed the `"unlisted"` visibility option. Saves are now either `"private"` or `"public"`.
+  - **Private** — Only you can see
+  - **Public** — Visible on your public space and RSS feed
 
 ---
 

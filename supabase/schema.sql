@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS spaces (
     avatar_url TEXT,
     visibility TEXT NOT NULL CHECK (visibility IN ('public', 'private')) DEFAULT 'public',
     public_layout TEXT NOT NULL CHECK (public_layout IN ('list', 'grid')) DEFAULT 'grid',
-    default_save_visibility TEXT NOT NULL CHECK (default_save_visibility IN ('private', 'public', 'unlisted')) DEFAULT 'private',
+    default_save_visibility TEXT NOT NULL CHECK (default_save_visibility IN ('private', 'public')) DEFAULT 'private',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS saves (
     site_name TEXT,
     image_url TEXT,
     content_type TEXT DEFAULT 'article',
-    visibility TEXT NOT NULL CHECK (visibility IN ('private', 'public', 'unlisted')) DEFAULT 'private',
+    visibility TEXT NOT NULL CHECK (visibility IN ('private', 'public')) DEFAULT 'private',
     is_archived BOOLEAN NOT NULL DEFAULT FALSE,
     is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
     created_by TEXT NOT NULL, -- Clerk user ID
@@ -245,15 +245,15 @@ CREATE POLICY "Public spaces are viewable by everyone" ON spaces
 
 -- Public saves are viewable by everyone
 CREATE POLICY "Public saves are viewable by everyone" ON saves
-    FOR SELECT USING (visibility IN ('public', 'unlisted'));
+    FOR SELECT USING (visibility = 'public');
 
--- Public snapshots are viewable when the associated save is public/unlisted
+-- Public snapshots are viewable when the associated save is public
 CREATE POLICY "Public snapshots are viewable when save is public" ON save_snapshots
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM saves 
             WHERE saves.id = save_snapshots.save_id 
-            AND saves.visibility IN ('public', 'unlisted')
+            AND saves.visibility = 'public'
         )
     );
 

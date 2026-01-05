@@ -573,13 +573,7 @@ export default function SettingsPage() {
                     <SelectItem value="public">
                       <div className="flex items-center gap-2">
                         <Eye className="h-4 w-4" />
-                        Public — Visible in your public space
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="unlisted">
-                      <div className="flex items-center gap-2">
-                        <EyeOff className="h-4 w-4" />
-                        Unlisted — Accessible via direct link only
+                        Public — Visible on your public space and RSS feed
                       </div>
                     </SelectItem>
                   </SelectContent>

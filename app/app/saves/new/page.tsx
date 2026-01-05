@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Eye, EyeOff, Folder, Link2, Loader2, Lock, Tag } from "lucide-react";
+import { ArrowLeft, Eye, Folder, Link2, Loader2, Lock, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -31,14 +31,8 @@ const VISIBILITY_OPTIONS = [
   {
     value: "public" as const,
     label: "Public",
-    description: "Visible in your public space",
+    description: "Visible on your public space and RSS feed",
     icon: Eye,
-  },
-  {
-    value: "unlisted" as const,
-    label: "Unlisted",
-    description: "Accessible via direct link only",
-    icon: EyeOff,
   },
 ];
 

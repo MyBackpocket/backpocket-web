@@ -2,7 +2,7 @@
 
 export type SpaceType = "personal" | "org";
 export type SpaceVisibility = "public" | "private";
-export type SaveVisibility = "private" | "public" | "unlisted";
+export type SaveVisibility = "private" | "public";
 export type CollectionVisibility = "private" | "public";
 export type PublicLayout = "list" | "grid";
 

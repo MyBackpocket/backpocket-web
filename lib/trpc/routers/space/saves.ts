@@ -28,7 +28,7 @@ export const savesRouter = router({
     .input(
       z.object({
         query: z.string().optional(),
-        visibility: z.enum(["private", "public", "unlisted"]).optional(),
+        visibility: z.enum(["private", "public"]).optional(),
         isArchived: z.boolean().optional(),
         isFavorite: z.boolean().optional(),
         collectionId: z.string().optional(),
@@ -262,7 +262,7 @@ export const savesRouter = router({
       z.object({
         url: z.string().url(),
         title: z.string().optional(),
-        visibility: z.enum(["private", "public", "unlisted"]).default("private"),
+        visibility: z.enum(["private", "public"]).default("private"),
         collectionIds: z.array(z.string()).optional(),
         tagNames: z.array(z.string()).optional(),
         note: z.string().optional(),
@@ -429,7 +429,7 @@ export const savesRouter = router({
         id: z.string(),
         title: z.string().optional(),
         description: z.string().optional(),
-        visibility: z.enum(["private", "public", "unlisted"]).optional(),
+        visibility: z.enum(["private", "public"]).optional(),
         collectionIds: z.array(z.string()).optional(),
         tagNames: z.array(z.string()).optional(),
       })

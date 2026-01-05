@@ -8,11 +8,15 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Folder,
   Globe,
-  Link2,
   Loader2,
+  Pencil,
+  Plus,
   Star,
+  Tag,
   Trash2,
+  X,
   Zap,
 } from "lucide-react";
 import Image from "next/image";
@@ -61,7 +65,28 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
-    visibility: "private" as "private" | "public" | "unlisted",
+    visibility: "private" as "private" | "public",
+    tags: [] as string[],
+    collectionIds: [] as string[],
+  });
+  const [tagInput, setTagInput] = useState("");
+  const [collectionInput, setCollectionInput] = useState("");
+  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
+
+  // Fetch collections for the edit dialog
+  const { data: allCollections } = trpc.space.listCollections.useQuery();
+
+  const createCollection = trpc.space.createCollection.useMutation({
+    onSuccess: (newCollection) => {
+      // Add the new collection to selection and invalidate the list
+      setEditForm((prev) => ({
+        ...prev,
+        collectionIds: [...prev.collectionIds, newCollection.id],
+      }));
+      setCollectionInput("");
+      setIsCreatingCollection(false);
+      utils.space.listCollections.invalidate();
+    },
   });
 
   // Query snapshot data with content
@@ -175,19 +200,84 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
         title: save.title || "",
         description: save.description || "",
         visibility: save.visibility,
+        tags: save.tags?.map((t) => t.name) || [],
+        collectionIds: save.collections?.map((c) => c.id) || [],
       });
+      setTagInput("");
+      setCollectionInput("");
+      setIsCreatingCollection(false);
       setShowEditDialog(true);
     }
   }, [save]);
 
   const handleSaveEdit = useCallback(() => {
+    // Include any pending tag input that wasn't added yet
+    const finalTags = tagInput.trim() ? [...editForm.tags, tagInput.trim()] : editForm.tags;
+
     updateSave.mutate({
       id: saveId,
       title: editForm.title || undefined,
       description: editForm.description || undefined,
       visibility: editForm.visibility,
+      tagNames: finalTags,
+      collectionIds: editForm.collectionIds,
     });
-  }, [saveId, editForm, updateSave]);
+  }, [saveId, editForm, tagInput, updateSave]);
+
+  const handleAddTag = useCallback(() => {
+    const trimmed = tagInput.trim().toLowerCase();
+    if (trimmed && !editForm.tags.includes(trimmed)) {
+      setEditForm((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }));
+    }
+    setTagInput("");
+  }, [tagInput, editForm.tags]);
+
+  const handleRemoveTag = useCallback((tagToRemove: string) => {
+    setEditForm((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((t) => t !== tagToRemove),
+    }));
+  }, []);
+
+  const handleTagKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Tab" || e.key === "Enter") {
+        if (tagInput.trim()) {
+          e.preventDefault();
+          handleAddTag();
+        }
+      } else if (e.key === "Backspace" && !tagInput && editForm.tags.length > 0) {
+        // Remove last tag when backspace is pressed on empty input
+        setEditForm((prev) => ({
+          ...prev,
+          tags: prev.tags.slice(0, -1),
+        }));
+      }
+    },
+    [tagInput, editForm.tags, handleAddTag]
+  );
+
+  const handleCreateCollection = useCallback(() => {
+    const trimmed = collectionInput.trim();
+    if (trimmed && !createCollection.isPending) {
+      createCollection.mutate({ name: trimmed });
+    }
+  }, [collectionInput, createCollection]);
+
+  const handleCollectionKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Tab" || e.key === "Enter") {
+        if (collectionInput.trim()) {
+          e.preventDefault();
+          handleCreateCollection();
+        }
+      } else if (e.key === "Escape") {
+        setIsCreatingCollection(false);
+        setCollectionInput("");
+      }
+    },
+    [collectionInput, handleCreateCollection]
+  );
 
   const handleConfirmDelete = useCallback(() => {
     deleteSave.mutate({ saveId });
@@ -268,7 +358,6 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
   const visibilityConfig = {
     public: { icon: Eye, label: "Public", color: "text-green-600" },
     private: { icon: EyeOff, label: "Private", color: "text-muted-foreground" },
-    unlisted: { icon: Link2, label: "Unlisted", color: "text-yellow-600" },
   };
 
   const visibility = visibilityConfig[save.visibility];
@@ -378,8 +467,20 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
         <div className="grid gap-6 md:grid-cols-2">
           {/* Tags */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Tags</CardTitle>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                Tags
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                onClick={handleOpenEditDialog}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="sr-only">Edit tags</span>
+              </Button>
             </CardHeader>
             <CardContent>
               {save.tags && save.tags.length > 0 ? (
@@ -398,8 +499,20 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
 
           {/* Collections */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Collections</CardTitle>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Folder className="h-4 w-4 text-muted-foreground" />
+                Collections
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                onClick={handleOpenEditDialog}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="sr-only">Edit collections</span>
+              </Button>
             </CardHeader>
             <CardContent>
               {save.collections && save.collections.length > 0 ? (
@@ -527,7 +640,7 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
 
         {/* Edit Dialog */}
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent>
+          <DialogContent className="max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit save</DialogTitle>
             </DialogHeader>
@@ -557,7 +670,7 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
                 <Label htmlFor="visibility">Visibility</Label>
                 <Select
                   value={editForm.visibility}
-                  onValueChange={(value: "private" | "public" | "unlisted") =>
+                  onValueChange={(value: "private" | "public") =>
                     setEditForm((prev) => ({ ...prev, visibility: value }))
                   }
                 >
@@ -568,23 +681,126 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
                     <SelectItem value="private">
                       <span className="flex items-center gap-2">
                         <EyeOff className="h-4 w-4" />
-                        Private
+                        Private — Only you can see this
                       </span>
                     </SelectItem>
                     <SelectItem value="public">
                       <span className="flex items-center gap-2">
                         <Eye className="h-4 w-4" />
-                        Public
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="unlisted">
-                      <span className="flex items-center gap-2">
-                        <Link2 className="h-4 w-4" />
-                        Unlisted
+                        Public — Visible on your public space and RSS feed
                       </span>
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <Separator />
+              <div className="grid gap-2">
+                <Label htmlFor="tags" className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  Tags
+                </Label>
+                <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[42px] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  {editForm.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                        <span className="sr-only">Remove {tag}</span>
+                      </button>
+                    </Badge>
+                  ))}
+                  <input
+                    id="tags"
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    onBlur={handleAddTag}
+                    placeholder={editForm.tags.length === 0 ? "Type a tag and press Tab..." : ""}
+                    className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Press Tab or Enter to add a tag</p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="collections" className="flex items-center gap-2">
+                  <Folder className="h-4 w-4 text-muted-foreground" />
+                  Collections
+                </Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {allCollections?.map((col) => {
+                    const isSelected = editForm.collectionIds.includes(col.id);
+                    return (
+                      <Badge
+                        key={col.id}
+                        variant={isSelected ? "default" : "outline"}
+                        className={cn(
+                          "cursor-pointer transition-colors",
+                          isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                        )}
+                        onClick={() =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            collectionIds: isSelected
+                              ? prev.collectionIds.filter((id) => id !== col.id)
+                              : [...prev.collectionIds, col.id],
+                          }))
+                        }
+                      >
+                        {col.name}
+                      </Badge>
+                    );
+                  })}
+                  {isCreatingCollection ? (
+                    <div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1">
+                      <input
+                        type="text"
+                        value={collectionInput}
+                        onChange={(e) => setCollectionInput(e.target.value)}
+                        onKeyDown={handleCollectionKeyDown}
+                        onBlur={() => {
+                          if (!collectionInput.trim()) {
+                            setIsCreatingCollection(false);
+                          }
+                        }}
+                        placeholder="Collection name..."
+                        className="w-28 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                        autoFocus
+                        disabled={createCollection.isPending}
+                      />
+                      {createCollection.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCreatingCollection(false);
+                            setCollectionInput("");
+                          }}
+                          className="rounded p-0.5 hover:bg-muted transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer gap-1 border-dashed hover:bg-muted transition-colors"
+                      onClick={() => setIsCreatingCollection(true)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      New
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click to select, or create a new collection
+                </p>
               </div>
             </div>
             <DialogFooter>

@@ -65,7 +65,7 @@ export interface DbSave {
   site_name: string | null;
   image_url: string | null;
   content_type: string | null;
-  visibility: "private" | "public" | "unlisted";
+  visibility: "private" | "public";
   is_archived: boolean;
   is_favorite: boolean;
   created_by: string;

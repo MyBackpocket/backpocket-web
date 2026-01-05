@@ -77,10 +77,7 @@ async function fetchUserSpaceFromDB(userId: string): Promise<Space | null> {
     avatarUrl: space.avatar_url,
     visibility: space.visibility as "public" | "private",
     publicLayout: space.public_layout as "list" | "grid",
-    defaultSaveVisibility: (space.default_save_visibility || "private") as
-      | "private"
-      | "public"
-      | "unlisted",
+    defaultSaveVisibility: (space.default_save_visibility || "private") as "private" | "public",
     createdAt: new Date(space.created_at),
     updatedAt: new Date(space.updated_at),
   };

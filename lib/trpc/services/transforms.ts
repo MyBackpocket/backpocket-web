@@ -17,7 +17,7 @@ export function transformSave(
     siteName: dbSave.site_name as string | null,
     imageUrl: dbSave.image_url as string | null,
     contentType: dbSave.content_type as string | null,
-    visibility: dbSave.visibility as "private" | "public" | "unlisted",
+    visibility: dbSave.visibility as "private" | "public",
     isArchived: dbSave.is_archived as boolean,
     isFavorite: dbSave.is_favorite as boolean,
     createdBy: dbSave.created_by as string,

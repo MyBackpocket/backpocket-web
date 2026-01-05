@@ -12,7 +12,6 @@ import {
   Filter,
   Globe,
   Grid3X3,
-  Link2,
   List,
   Loader2,
   MoreHorizontal,
@@ -83,7 +82,6 @@ function SaveListItem({
   const visibilityConfig = {
     public: { icon: Eye, label: "Public", class: "tag-mint" },
     private: { icon: EyeOff, label: "Private", class: "tag-denim" },
-    unlisted: { icon: Link2, label: "Unlisted", class: "tag-amber" },
   };
 
   const vis = visibilityConfig[save.visibility];
@@ -267,7 +265,6 @@ function SaveGridCard({
   const visibilityConfig = {
     public: { icon: Eye, label: "Public", class: "tag-mint" },
     private: { icon: EyeOff, label: "Private", class: "tag-denim" },
-    unlisted: { icon: Link2, label: "Unlisted", class: "tag-amber" },
   };
 
   const vis = visibilityConfig[save.visibility];

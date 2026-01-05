@@ -75,7 +75,7 @@ export const publicRouter = router({
         .from("saves")
         .select("*")
         .eq("space_id", input.spaceId)
-        .in("visibility", ["public", "unlisted"])
+        .eq("visibility", "public")
         .eq("is_archived", false)
         .order("saved_at", { ascending: false })
         .limit(input.limit + 1);
@@ -131,7 +131,7 @@ export const publicRouter = router({
         .select("*")
         .eq("id", input.saveId)
         .eq("space_id", input.spaceId)
-        .in("visibility", ["public", "unlisted"])
+        .eq("visibility", "public")
         .single();
 
       if (!save) return null;
@@ -180,7 +180,7 @@ export const publicRouter = router({
     }),
 
   /**
-   * Get snapshot for a public/unlisted save
+   * Get snapshot for a public save
    */
   getPublicSaveSnapshot: publicProcedure
     .input(
@@ -195,13 +195,13 @@ export const publicRouter = router({
         return null;
       }
 
-      // Verify the save is public/unlisted
+      // Verify the save is public
       const { data: save } = await supabaseAdmin
         .from("saves")
         .select("id, visibility")
         .eq("id", input.saveId)
         .eq("space_id", input.spaceId)
-        .in("visibility", ["public", "unlisted"])
+        .eq("visibility", "public")
         .single();
 
       if (!save) {

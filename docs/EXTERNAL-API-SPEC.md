@@ -193,14 +193,14 @@ This is the most important endpoint for browser extensions and share sheets.
 
 **Input Schema:**
 
-| Field           | Type                                  | Required | Default     | Description                                 |
-| --------------- | ------------------------------------- | -------- | ----------- | ------------------------------------------- |
-| `url`           | `string`                              | ✅ Yes   | -           | Valid URL to save                           |
-| `title`         | `string`                              | ❌ No    | null        | Custom title (auto-fetched if not provided) |
-| `visibility`    | `"private" \| "public" \| "unlisted"` | ❌ No    | `"private"` | Save visibility                             |
-| `tagNames`      | `string[]`                            | ❌ No    | `[]`        | Tag names to attach (auto-created)          |
-| `collectionIds` | `string[]`                            | ❌ No    | `[]`        | Collection IDs to add to                    |
-| `note`          | `string`                              | ❌ No    | null        | Description/notes                           |
+| Field           | Type                    | Required | Default     | Description                                 |
+| --------------- | ----------------------- | -------- | ----------- | ------------------------------------------- |
+| `url`           | `string`                | ✅ Yes   | -           | Valid URL to save                           |
+| `title`         | `string`                | ❌ No    | null        | Custom title (auto-fetched if not provided) |
+| `visibility`    | `"private" \| "public"` | ❌ No    | `"private"` | Save visibility                             |
+| `tagNames`      | `string[]`              | ❌ No    | `[]`        | Tag names to attach (auto-created)          |
+| `collectionIds` | `string[]`              | ❌ No    | `[]`        | Collection IDs to add to                    |
+| `note`          | `string`                | ❌ No    | null        | Description/notes                           |
 
 **Response:**
 
@@ -359,16 +359,16 @@ Pre-check if a URL already exists before saving. Useful for showing instant feed
 
 **Input Schema:**
 
-| Field          | Type                                  | Required | Default | Description                     |
-| -------------- | ------------------------------------- | -------- | ------- | ------------------------------- |
-| `query`        | `string`                              | ❌ No    | -       | Search in title/description/url |
-| `visibility`   | `"private" \| "public" \| "unlisted"` | ❌ No    | -       | Filter by visibility            |
-| `isArchived`   | `boolean`                             | ❌ No    | -       | Filter archived saves           |
-| `isFavorite`   | `boolean`                             | ❌ No    | -       | Filter favorites                |
-| `collectionId` | `string`                              | ❌ No    | -       | Filter by collection            |
-| `tagId`        | `string`                              | ❌ No    | -       | Filter by tag                   |
-| `cursor`       | `string`                              | ❌ No    | -       | Pagination cursor (ISO date)    |
-| `limit`        | `number`                              | ❌ No    | 20      | Results per page (1-50)         |
+| Field          | Type                    | Required | Default | Description                     |
+| -------------- | ----------------------- | -------- | ------- | ------------------------------- |
+| `query`        | `string`                | ❌ No    | -       | Search in title/description/url |
+| `visibility`   | `"private" \| "public"` | ❌ No    | -       | Filter by visibility            |
+| `isArchived`   | `boolean`               | ❌ No    | -       | Filter archived saves           |
+| `isFavorite`   | `boolean`               | ❌ No    | -       | Filter favorites                |
+| `collectionId` | `string`                | ❌ No    | -       | Filter by collection            |
+| `tagId`        | `string`                | ❌ No    | -       | Filter by tag                   |
+| `cursor`       | `string`                | ❌ No    | -       | Pagination cursor (ISO date)    |
+| `limit`        | `number`                | ❌ No    | 20      | Results per page (1-50)         |
 
 **Response:**
 
@@ -696,14 +696,14 @@ Max 100 saves per request.
 
 All fields are optional.
 
-| Field                   | Type                                  | Description                      |
-| ----------------------- | ------------------------------------- | -------------------------------- |
-| `name`                  | `string`                              | Display name for public space    |
-| `bio`                   | `string`                              | Short description                |
-| `avatarUrl`             | `string`                              | Avatar image URL                 |
-| `visibility`            | `"public" \| "private"`               | Space visibility                 |
-| `publicLayout`          | `"list" \| "grid"`                    | How saves are displayed publicly |
-| `defaultSaveVisibility` | `"private" \| "public" \| "unlisted"` | Default visibility for new saves |
+| Field                   | Type                    | Description                      |
+| ----------------------- | ----------------------- | -------------------------------- |
+| `name`                  | `string`                | Display name for public space    |
+| `bio`                   | `string`                | Short description                |
+| `avatarUrl`             | `string`                | Avatar image URL                 |
+| `visibility`            | `"public" \| "private"` | Space visibility                 |
+| `publicLayout`          | `"list" \| "grid"`      | How saves are displayed publicly |
+| `defaultSaveVisibility` | `"private" \| "public"` | Default visibility for new saves |
 
 ---
 
@@ -1064,7 +1064,7 @@ These endpoints don't require authentication and are used for public space pages
 
 ```typescript
 // === Enums ===
-type SaveVisibility = "private" | "public" | "unlisted";
+type SaveVisibility = "private" | "public";
 type SpaceVisibility = "public" | "private";
 type PublicLayout = "list" | "grid";
 type SnapshotStatus = "pending" | "processing" | "ready" | "failed" | "blocked";
@@ -1326,6 +1326,7 @@ export function useSaveLink() {
 **Duplicate Handling:**
 
 When `createSave` returns a `CONFLICT` error with `cause.type === "DUPLICATE_SAVE"`, show the user:
+
 - The existing save info (title, saved date)
 - Options: "View existing" or "Try different URL"
 
@@ -1348,6 +1349,7 @@ When `createSave` returns a `CONFLICT` error with `cause.type === "DUPLICATE_SAV
 **Duplicate Handling:**
 
 For share sheet UX, call `checkDuplicate` immediately when a URL is shared. If duplicate found:
+
 - Show "Already saved [time ago]" with existing save preview
 - Offer: "View" | "Open in App" | "Cancel"
 
@@ -1367,15 +1369,15 @@ When saving URLs, Backpocket normalizes them for duplicate detection. This means
 
 ### Normalization Rules
 
-| Transformation           | Example                                           |
-| ------------------------ | ------------------------------------------------- |
-| Strip tracking params    | `?utm_source=twitter` → removed                   |
-| Remove `www.`            | `www.example.com` → `example.com`                 |
-| Lowercase hostname       | `Example.COM` → `example.com`                     |
-| Remove default ports     | `:443` (https) or `:80` (http) → removed          |
-| Sort query params        | `?b=2&a=1` → `?a=1&b=2`                           |
-| Remove trailing slash    | `/path/` → `/path`                                |
-| Remove hash fragments    | `#section` → removed                              |
+| Transformation        | Example                                  |
+| --------------------- | ---------------------------------------- |
+| Strip tracking params | `?utm_source=twitter` → removed          |
+| Remove `www.`         | `www.example.com` → `example.com`        |
+| Lowercase hostname    | `Example.COM` → `example.com`            |
+| Remove default ports  | `:443` (https) or `:80` (http) → removed |
+| Sort query params     | `?b=2&a=1` → `?a=1&b=2`                  |
+| Remove trailing slash | `/path/` → `/path`                       |
+| Remove hash fragments | `#section` → removed                     |
 
 ### Tracking Parameters Stripped
 
@@ -1416,7 +1418,15 @@ These parameters affect content and are **not** stripped:
 
 ### 2026-01-05
 
+#### Changed
+
+- **Simplified Visibility:** Removed the `"unlisted"` visibility option. Saves are now either `"private"` or `"public"`.
+  - **Private** — Only you can see
+  - **Public** — Visible on your public space and RSS feed
+  - Existing `"unlisted"` saves are automatically converted to `"public"`
+
 #### Added
+
 - **Duplicate Detection:** `createSave` now returns a `CONFLICT` error with existing save details when attempting to save a duplicate URL
 - **New Endpoint:** `space.checkDuplicate` - Pre-check if a URL exists before saving
 - **URL Normalization:** URLs are automatically cleaned before saving/checking:
@@ -1427,8 +1437,10 @@ These parameters affect content and are **not** stripped:
   - Trailing slashes and hash fragments are removed
 
 #### Migration Notes
+
 - Existing saves will work normally. The `normalized_url` column is populated for new saves automatically.
 - To backfill existing saves for duplicate detection, run the migration script (see deployment docs).
+- The `004_remove_unlisted_visibility.sql` migration converts existing `"unlisted"` saves/settings to `"public"`.
 
 ---
 
