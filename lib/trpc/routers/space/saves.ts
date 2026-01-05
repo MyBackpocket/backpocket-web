@@ -4,6 +4,7 @@ import { SNAPSHOTS_ENABLED } from "@/lib/constants/snapshots";
 import { enqueueSnapshotJob } from "@/lib/snapshots/queue";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Collection, Tag } from "@/lib/types";
+import { normalizeUrl } from "@/lib/utils/url";
 import { createSpaceForUser, getUserSpace } from "../../services/space";
 import { transformSave } from "../../services/transforms";
 import { protectedProcedure, router } from "../../trpc";
@@ -169,6 +170,39 @@ export const savesRouter = router({
       return { items, nextCursor };
     }),
 
+  /**
+   * Check if a URL already exists in the user's space (for duplicate detection).
+   * Returns the existing save if found, null otherwise.
+   */
+  checkDuplicate: protectedProcedure
+    .input(z.object({ url: z.string().url() }))
+    .query(async ({ ctx, input }) => {
+      const space = await getUserSpace(ctx.userId, ctx.spaceCache);
+      if (!space) return null;
+
+      const normalized = normalizeUrl(input.url);
+      if (!normalized) return null;
+
+      // Check for existing save with same normalized URL
+      const { data: existing } = await supabaseAdmin
+        .from("saves")
+        .select("id, url, title, image_url, site_name, saved_at")
+        .eq("space_id", space.id)
+        .eq("normalized_url", normalized)
+        .single();
+
+      if (!existing) return null;
+
+      return {
+        id: existing.id,
+        url: existing.url,
+        title: existing.title,
+        imageUrl: existing.image_url,
+        siteName: existing.site_name,
+        savedAt: new Date(existing.saved_at),
+      };
+    }),
+
   getSave: protectedProcedure
     .input(z.object({ saveId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -240,11 +274,43 @@ export const savesRouter = router({
         space = await createSpaceForUser(ctx.userId);
       }
 
+      // Normalize URL for duplicate detection
+      const normalizedUrl = normalizeUrl(input.url);
+
+      // Check for existing duplicate
+      if (normalizedUrl) {
+        const { data: existing } = await supabaseAdmin
+          .from("saves")
+          .select("id, url, title, image_url, site_name, saved_at")
+          .eq("space_id", space.id)
+          .eq("normalized_url", normalizedUrl)
+          .single();
+
+        if (existing) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "You already have this link saved",
+            cause: {
+              type: "DUPLICATE_SAVE",
+              existingSave: {
+                id: existing.id,
+                url: existing.url,
+                title: existing.title,
+                imageUrl: existing.image_url,
+                siteName: existing.site_name,
+                savedAt: existing.saved_at,
+              },
+            },
+          });
+        }
+      }
+
       const { data: save, error } = await supabaseAdmin
         .from("saves")
         .insert({
           space_id: space.id,
           url: input.url,
+          normalized_url: normalizedUrl,
           title: input.title || null,
           description: input.note || null,
           visibility: input.visibility,

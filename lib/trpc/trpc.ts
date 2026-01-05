@@ -4,8 +4,19 @@ import type { Context } from "./context";
 // Performance thresholds (ms)
 const SLOW_PROCEDURE_THRESHOLD = 200;
 
-// Initialize tRPC with context type
-const t = initTRPC.context<Context>().create();
+// Initialize tRPC with context type and custom error formatter
+const t = initTRPC.context<Context>().create({
+  errorFormatter: ({ shape, error }) => {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        // Pass through the cause for custom error data (e.g., duplicate save info)
+        cause: error.cause,
+      },
+    };
+  },
+});
 
 // Timing middleware for performance monitoring
 const timingMiddleware = t.middleware(async ({ path, type, next }) => {

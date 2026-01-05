@@ -4,6 +4,7 @@ import { Check, ChevronDown, Globe, Link as LinkIcon, Loader2, Lock, Plus } from
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type DuplicateSaveInfo, DuplicateSaveModal } from "@/components/duplicate-save-modal";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,6 +42,8 @@ export function QuickAdd() {
   const [metadata, setMetadata] = useState<FetchedMetadata | null>(null);
   const [visibility, setVisibility] = useState<SaveVisibility | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
+  const [duplicateSave, setDuplicateSave] = useState<DuplicateSaveInfo | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -71,8 +74,18 @@ export function QuickAdd() {
         resetAndClose();
       }, 1000);
     },
-    onError: () => {
-      setState("preview");
+    onError: (error) => {
+      // Check if this is a duplicate error (cause is added by our error formatter)
+      const data = error.data as
+        | { cause?: { type?: string; existingSave?: DuplicateSaveInfo } }
+        | undefined;
+      if (data?.cause?.type === "DUPLICATE_SAVE" && data.cause.existingSave) {
+        setDuplicateSave(data.cause.existingSave);
+        setShowDuplicateModal(true);
+        setState("idle");
+      } else {
+        setState("preview");
+      }
     },
   });
 
@@ -83,6 +96,8 @@ export function QuickAdd() {
     setMetadata(null);
     setVisibility(null);
     setSelectedCollection(null);
+    setDuplicateSave(null);
+    setShowDuplicateModal(false);
   }, []);
 
   // Focus input when dialog opens
@@ -182,6 +197,15 @@ export function QuickAdd() {
 
   const selectedCollectionName = collections?.find((c) => c.id === selectedCollection)?.name;
 
+  const handleDuplicateDismiss = useCallback(() => {
+    setDuplicateSave(null);
+    setUrl("");
+    setMetadata(null);
+    setState("idle");
+    // Re-focus input after dismissing duplicate modal
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
   // Render a static button during SSR to prevent hydration mismatch with Radix UI
   if (!mounted) {
     return (
@@ -193,208 +217,229 @@ export function QuickAdd() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="w-full gap-2">
-          <Plus className="h-4 w-4" />
-          Quick Add
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg" onKeyDown={handleKeyDown} aria-describedby={undefined}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <LinkIcon className="h-5 w-5 text-primary" />
-            {state === "success" ? "Saved!" : "Quick Add"}
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <DuplicateSaveModal
+        open={showDuplicateModal}
+        onOpenChange={(open) => {
+          setShowDuplicateModal(open);
+          if (!open) {
+            resetAndClose();
+          }
+        }}
+        duplicateSave={duplicateSave}
+        onDismiss={handleDuplicateDismiss}
+      />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button className="w-full gap-2">
+            <Plus className="h-4 w-4" />
+            Quick Add
+          </Button>
+        </DialogTrigger>
+        <DialogContent
+          className="sm:max-w-lg"
+          onKeyDown={handleKeyDown}
+          aria-describedby={undefined}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinkIcon className="h-5 w-5 text-primary" />
+              {state === "success" ? "Saved!" : "Quick Add"}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          {/* URL Input - Always visible in idle state */}
-          {(state === "idle" || state === "loading") && (
-            <form onSubmit={handleSubmit}>
-              <div className="relative">
-                <Input
-                  ref={inputRef}
-                  type="url"
-                  placeholder="Paste any URL..."
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onPaste={handlePaste}
-                  disabled={state === "loading"}
-                  className="pr-10 h-12 text-base"
-                  autoComplete="off"
-                />
-                {state === "loading" ? (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  url &&
-                  isValidUrl(url) && (
-                    <Button
-                      type="submit"
-                      size="sm"
-                      variant="ghost"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 px-3"
-                    >
-                      Fetch
-                    </Button>
-                  )
+          <div className="space-y-4">
+            {/* URL Input - Always visible in idle state */}
+            {(state === "idle" || state === "loading") && (
+              <form onSubmit={handleSubmit}>
+                <div className="relative">
+                  <Input
+                    ref={inputRef}
+                    type="url"
+                    placeholder="Paste any URL..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onPaste={handlePaste}
+                    disabled={state === "loading"}
+                    className="pr-10 h-12 text-base"
+                    autoComplete="off"
+                  />
+                  {state === "loading" ? (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    url &&
+                    isValidUrl(url) && (
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="ghost"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 px-3"
+                      >
+                        Fetch
+                      </Button>
+                    )
+                  )}
+                </div>
+                {state === "loading" && (
+                  <p className="text-sm text-muted-foreground mt-2 animate-pulse">
+                    Fetching page info...
+                  </p>
                 )}
-              </div>
-              {state === "loading" && (
-                <p className="text-sm text-muted-foreground mt-2 animate-pulse">
-                  Fetching page info...
-                </p>
-              )}
-            </form>
-          )}
+              </form>
+            )}
 
-          {/* Preview Card */}
-          {(state === "preview" || state === "saving" || state === "success") && metadata && (
-            <div className="space-y-4">
-              {/* Fetched Content Preview */}
-              <div className="rounded-lg border bg-card overflow-hidden">
-                {metadata.imageUrl && (
-                  <div className="relative aspect-video bg-muted">
-                    <Image src={metadata.imageUrl} alt="" fill className="object-cover" />
-                  </div>
-                )}
-                <div className="p-4 space-y-2">
-                  <div className="flex items-start gap-3">
-                    {metadata.favicon && (
-                      <div className="relative w-5 h-5 shrink-0 mt-0.5">
-                        <Image
-                          src={metadata.favicon}
-                          alt=""
-                          fill
-                          className="rounded object-contain"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-base leading-tight line-clamp-2">
-                        {metadata.title}
-                      </h3>
-                      {metadata.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {metadata.description}
-                        </p>
+            {/* Preview Card */}
+            {(state === "preview" || state === "saving" || state === "success") && metadata && (
+              <div className="space-y-4">
+                {/* Fetched Content Preview */}
+                <div className="rounded-lg border bg-card overflow-hidden">
+                  {metadata.imageUrl && (
+                    <div className="relative aspect-video bg-muted">
+                      <Image src={metadata.imageUrl} alt="" fill className="object-cover" />
+                    </div>
+                  )}
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start gap-3">
+                      {metadata.favicon && (
+                        <div className="relative w-5 h-5 shrink-0 mt-0.5">
+                          <Image
+                            src={metadata.favicon}
+                            alt=""
+                            fill
+                            className="rounded object-contain"
+                          />
+                        </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {metadata.siteName || new URL(url).hostname}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-base leading-tight line-clamp-2">
+                          {metadata.title}
+                        </h3>
+                        {metadata.description && (
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {metadata.description}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {metadata.siteName || new URL(url).hostname}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Quick Options */}
-              {state !== "success" && (
-                <div className="flex items-center gap-2">
-                  {/* Visibility Toggle */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        disabled={state === "saving"}
-                      >
-                        {effectiveVisibility === "private" ? (
-                          <Lock className="h-3.5 w-3.5" />
-                        ) : (
-                          <Globe className="h-3.5 w-3.5" />
-                        )}
-                        {effectiveVisibility === "private" ? "Private" : "Public"}
-                        <ChevronDown className="h-3 w-3 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => setVisibility("private")}>
-                        <Lock className="h-4 w-4 mr-2" />
-                        Private
-                        {effectiveVisibility === "private" && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setVisibility("public")}>
-                        <Globe className="h-4 w-4 mr-2" />
-                        Public
-                        {effectiveVisibility === "public" && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Collection Picker */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        disabled={state === "saving"}
-                      >
-                        {selectedCollectionName || "No collection"}
-                        <ChevronDown className="h-3 w-3 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => setSelectedCollection(null)}>
-                        No collection
-                        {!selectedCollection && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                      {collections && collections.length > 0 && <DropdownMenuSeparator />}
-                      {collections?.map((col) => (
-                        <DropdownMenuItem
-                          key={col.id}
-                          onClick={() => setSelectedCollection(col.id)}
+                {/* Quick Options */}
+                {state !== "success" && (
+                  <div className="flex items-center gap-2">
+                    {/* Visibility Toggle */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          disabled={state === "saving"}
                         >
-                          {col.name}
-                          {selectedCollection === col.id && <Check className="h-4 w-4 ml-auto" />}
+                          {effectiveVisibility === "private" ? (
+                            <Lock className="h-3.5 w-3.5" />
+                          ) : (
+                            <Globe className="h-3.5 w-3.5" />
+                          )}
+                          {effectiveVisibility === "private" ? "Private" : "Public"}
+                          <ChevronDown className="h-3 w-3 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => setVisibility("private")}>
+                          <Lock className="h-4 w-4 mr-2" />
+                          Private
+                          {effectiveVisibility === "private" && (
+                            <Check className="h-4 w-4 ml-auto" />
+                          )}
                         </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <DropdownMenuItem onClick={() => setVisibility("public")}>
+                          <Globe className="h-4 w-4 mr-2" />
+                          Public
+                          {effectiveVisibility === "public" && (
+                            <Check className="h-4 w-4 ml-auto" />
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-                  <div className="flex-1" />
+                    {/* Collection Picker */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          disabled={state === "saving"}
+                        >
+                          {selectedCollectionName || "No collection"}
+                          <ChevronDown className="h-3 w-3 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => setSelectedCollection(null)}>
+                          No collection
+                          {!selectedCollection && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        {collections && collections.length > 0 && <DropdownMenuSeparator />}
+                        {collections?.map((col) => (
+                          <DropdownMenuItem
+                            key={col.id}
+                            onClick={() => setSelectedCollection(col.id)}
+                          >
+                            {col.name}
+                            {selectedCollection === col.id && <Check className="h-4 w-4 ml-auto" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-                  {/* Edit link */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      // Navigate to full form with pre-filled data
-                      const params = new URLSearchParams({
-                        url,
-                        title: metadata.title,
-                        visibility: effectiveVisibility,
-                      });
-                      if (selectedCollection) {
-                        params.set("collection", selectedCollection);
-                      }
-                      router.push(`/app/saves/new?${params.toString()}`);
-                      resetAndClose();
-                    }}
-                    disabled={state === "saving"}
-                  >
-                    More options
-                  </Button>
-                </div>
-              )}
+                    <div className="flex-1" />
 
-              {/* Save Button */}
-              <Button
-                onClick={handleSave}
-                disabled={state === "saving" || state === "success"}
-                className="w-full h-11"
-              >
-                {state === "saving" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {state === "success" && <Check className="mr-2 h-4 w-4 text-green-500" />}
-                {state === "success" ? "Saved!" : state === "saving" ? "Saving..." : "Save"}
-                {state === "preview" && <span className="ml-2 text-xs opacity-70">⌘↵</span>}
-              </Button>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+                    {/* Edit link */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        // Navigate to full form with pre-filled data
+                        const params = new URLSearchParams({
+                          url,
+                          title: metadata.title,
+                          visibility: effectiveVisibility,
+                        });
+                        if (selectedCollection) {
+                          params.set("collection", selectedCollection);
+                        }
+                        router.push(`/app/saves/new?${params.toString()}`);
+                        resetAndClose();
+                      }}
+                      disabled={state === "saving"}
+                    >
+                      More options
+                    </Button>
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <Button
+                  onClick={handleSave}
+                  disabled={state === "saving" || state === "success"}
+                  className="w-full h-11"
+                >
+                  {state === "saving" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {state === "success" && <Check className="mr-2 h-4 w-4 text-green-500" />}
+                  {state === "success" ? "Saved!" : state === "saving" ? "Saving..." : "Save"}
+                  {state === "preview" && <span className="ml-2 text-xs opacity-70">⌘↵</span>}
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -21,6 +21,8 @@ This document outlines all available API endpoints for external consumers: **bro
 5. [Type Definitions](#type-definitions)
 6. [Error Handling](#error-handling)
 7. [Implementation Guides](#implementation-guides)
+8. [URL Normalization](#url-normalization)
+9. [Changelog](#changelog)
 
 ---
 
@@ -89,6 +91,7 @@ Content-Type: application/json
 | Action            | Endpoint                | Method | Consumer |
 | ----------------- | ----------------------- | ------ | -------- |
 | Create a save     | `space.createSave`      | POST   | ✅ All   |
+| Check duplicate   | `space.checkDuplicate`  | POST   | ✅ All   |
 | List saves        | `space.listSaves`       | POST   | ✅ All   |
 | Get single save   | `space.getSave`         | POST   | ✅ All   |
 | Update save       | `space.updateSave`      | POST   | ✅ All   |
@@ -233,6 +236,103 @@ This is the most important endpoint for browser extensions and share sheets.
 - Tag names are normalized to lowercase and trimmed
 - A user's space is auto-created on first save if it doesn't exist
 - Snapshots are automatically queued when a save is created
+- **Duplicate Detection:** URLs are normalized before saving (tracking params stripped, www removed, etc.). If a duplicate is detected, a `CONFLICT` error is returned with the existing save info.
+
+**Duplicate Error Response (HTTP 409):**
+
+```json
+{
+  "error": {
+    "message": "You already have this link saved",
+    "code": -32600,
+    "data": {
+      "code": "CONFLICT",
+      "httpStatus": 409,
+      "path": "space.createSave",
+      "cause": {
+        "type": "DUPLICATE_SAVE",
+        "existingSave": {
+          "id": "uuid",
+          "url": "https://example.com/article",
+          "title": "Article Title",
+          "imageUrl": "https://...",
+          "siteName": "Example",
+          "savedAt": "2024-01-01T00:00:00.000Z"
+        }
+      }
+    }
+  }
+}
+```
+
+**Handling Duplicates:**
+
+```typescript
+const res = await fetch("https://backpocket.dev/api/trpc/space.createSave", {
+  method: "POST",
+  headers: { ... },
+  body: JSON.stringify({ json: { url: "https://example.com" } }),
+});
+
+const data = await res.json();
+
+if (data.error?.data?.cause?.type === "DUPLICATE_SAVE") {
+  const existingSave = data.error.data.cause.existingSave;
+  // Show user: "Already saved on {existingSave.savedAt}"
+  // Offer: View existing | Try different URL
+}
+```
+
+---
+
+#### Check Duplicate
+
+**Endpoint:** `POST /api/trpc/space.checkDuplicate`
+
+Pre-check if a URL already exists before saving. Useful for showing instant feedback to users.
+
+**Request:**
+
+```json
+{
+  "json": {
+    "url": "https://example.com/article?utm_source=twitter"
+  }
+}
+```
+
+**Response (No Duplicate):**
+
+```json
+{
+  "result": {
+    "data": null
+  }
+}
+```
+
+**Response (Duplicate Found):**
+
+```json
+{
+  "result": {
+    "data": {
+      "id": "uuid",
+      "url": "https://example.com/article",
+      "title": "Article Title",
+      "imageUrl": "https://...",
+      "siteName": "Example",
+      "savedAt": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+**Notes:**
+
+- URL is normalized before checking (tracking params stripped, www removed, etc.)
+- Returns `null` if no duplicate found
+- Returns existing save info if duplicate exists
 
 ---
 
@@ -1215,19 +1315,26 @@ export function useSaveLink() {
 
 **Essential endpoints:**
 
-- `space.createSave` - Primary functionality
+- `space.createSave` - Primary functionality (handles duplicates automatically)
+- `space.checkDuplicate` - Pre-check before saving for instant UX feedback
 - `space.listTags` - For tag autocomplete
 
 **Optional:**
 
 - `space.listCollections` - For collection picker
-- `space.getSave` - To check if URL already saved
+
+**Duplicate Handling:**
+
+When `createSave` returns a `CONFLICT` error with `cause.type === "DUPLICATE_SAVE"`, show the user:
+- The existing save info (title, saved date)
+- Options: "View existing" or "Try different URL"
 
 ### 📱 Mobile App
 
 **Essential endpoints:**
 
-- `space.createSave` - Share sheet integration
+- `space.createSave` - Share sheet integration (handles duplicates automatically)
+- `space.checkDuplicate` - Pre-check in share sheet for instant feedback
 - `space.listSaves` - Main list view
 - `space.listTags` / `space.listCollections` - Filtering
 - `space.getDashboardData` - Home screen
@@ -1237,6 +1344,12 @@ export function useSaveLink() {
 - `space.getMySpace` - Profile settings
 - `space.updateSettings` - Update preferences
 - `space.updateSlug` - Change subdomain
+
+**Duplicate Handling:**
+
+For share sheet UX, call `checkDuplicate` immediately when a URL is shared. If duplicate found:
+- Show "Already saved [time ago]" with existing save preview
+- Offer: "View" | "Open in App" | "Cancel"
 
 ### 🌐 Public Space Consumers
 
@@ -1248,12 +1361,74 @@ All `public.*` endpoints are unauthenticated and suitable for:
 
 ---
 
+## URL Normalization
+
+When saving URLs, Backpocket normalizes them for duplicate detection. This means the same content won't be saved twice even if the URLs differ slightly.
+
+### Normalization Rules
+
+| Transformation           | Example                                           |
+| ------------------------ | ------------------------------------------------- |
+| Strip tracking params    | `?utm_source=twitter` → removed                   |
+| Remove `www.`            | `www.example.com` → `example.com`                 |
+| Lowercase hostname       | `Example.COM` → `example.com`                     |
+| Remove default ports     | `:443` (https) or `:80` (http) → removed          |
+| Sort query params        | `?b=2&a=1` → `?a=1&b=2`                           |
+| Remove trailing slash    | `/path/` → `/path`                                |
+| Remove hash fragments    | `#section` → removed                              |
+
+### Tracking Parameters Stripped
+
+The following parameter prefixes/names are stripped:
+
+- **UTM:** `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, etc.
+- **Facebook:** `fbclid`, `fb_action_ids`, `fb_source`, etc.
+- **Google:** `gclid`, `gclsrc`, `dclid`, `gbraid`, `wbraid`
+- **Twitter/X:** `twclid`
+- **Microsoft:** `msclkid`
+- **Common:** `ref`, `ref_src`, `source`, `src`, `affiliate`, `partner`
+- **Email:** `mc_cid`, `mc_eid`, `mkt_tok`, `_hsenc`, `_hsmi`
+- **Analytics:** `_ga`, `_gl`, `s_kwcid`
+- And many more...
+
+### Content Parameters Preserved
+
+These parameters affect content and are **not** stripped:
+
+- `v`, `t`, `list` (YouTube)
+- `q`, `query`, `search` (Search)
+- `page`, `p`, `offset`, `limit` (Pagination)
+- `sort`, `order`, `filter`, `category`, `tag` (Filtering)
+- `id`, `article`, `post`, `tab`, `section` (Content IDs)
+
+---
+
 ## Resources
 
 - [tRPC Documentation](https://trpc.io/docs)
 - [Clerk Browser Extension SDK](https://clerk.com/docs/references/chrome-extension/overview)
 - [Clerk React Native SDK](https://clerk.com/docs/references/react-native/overview)
 - [WXT Framework](https://wxt.dev/)
+
+---
+
+## Changelog
+
+### 2026-01-05
+
+#### Added
+- **Duplicate Detection:** `createSave` now returns a `CONFLICT` error with existing save details when attempting to save a duplicate URL
+- **New Endpoint:** `space.checkDuplicate` - Pre-check if a URL exists before saving
+- **URL Normalization:** URLs are automatically cleaned before saving/checking:
+  - Tracking parameters (UTM, fbclid, gclid, etc.) are stripped
+  - `www.` prefix is removed
+  - Hostname is lowercased
+  - Query params are sorted for consistency
+  - Trailing slashes and hash fragments are removed
+
+#### Migration Notes
+- Existing saves will work normally. The `normalized_url` column is populated for new saves automatically.
+- To backfill existing saves for duplicate detection, run the migration script (see deployment docs).
 
 ---
 
