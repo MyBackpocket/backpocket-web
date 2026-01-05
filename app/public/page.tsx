@@ -3,11 +3,12 @@
 import {
   Bookmark,
   Calendar,
-  ChevronDown,
+  ChevronUp,
   ExternalLink,
   FolderOpen,
   Rss,
   Search,
+  SlidersHorizontal,
   Tag,
   X,
 } from "lucide-react";
@@ -248,12 +249,17 @@ function PublicSpaceContent() {
             <Button
               variant="outline"
               size="icon"
-              className="sm:hidden"
+              className={cn(
+                "sm:hidden transition-colors",
+                showMobileFilters && "bg-denim/10 border-denim/30 text-denim"
+              )}
               onClick={() => setShowMobileFilters(!showMobileFilters)}
             >
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform", showMobileFilters && "rotate-180")}
-              />
+              {showMobileFilters ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <SlidersHorizontal className="h-4 w-4" />
+              )}
             </Button>
           </div>
 
@@ -309,25 +315,64 @@ function PublicSpaceContent() {
             />
           </aside>
 
-          {/* Mobile filters dropdown */}
-          {showMobileFilters && (
-            <div className="sm:hidden fixed inset-x-0 top-[165px] z-20 bg-background border-b border-denim/15 px-4 py-4 max-h-[60vh] overflow-y-auto animate-slide-up">
-              <FilterSidebar
-                tags={tags || []}
-                collections={collections || []}
-                selectedTag={urlTag}
-                selectedCollection={urlCollection}
-                onTagSelect={(tag) => {
-                  updateFilters({ tag, collection: "" });
-                  setShowMobileFilters(false);
-                }}
-                onCollectionSelect={(id) => {
-                  updateFilters({ collection: id, tag: "" });
-                  setShowMobileFilters(false);
-                }}
-              />
+          {/* Mobile filters backdrop */}
+          <div
+            className={cn(
+              "sm:hidden fixed inset-0 z-40 bg-black/40 transition-opacity duration-300",
+              showMobileFilters ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+            onClick={() => setShowMobileFilters(false)}
+            onKeyDown={(e) => e.key === "Escape" && setShowMobileFilters(false)}
+          />
+
+          {/* Mobile filters bottom sheet */}
+          <div
+            className={cn(
+              "sm:hidden fixed inset-x-0 bottom-0 z-50 transition-transform duration-300 ease-out",
+              showMobileFilters ? "translate-y-0" : "translate-y-full"
+            )}
+          >
+            {/* Sheet container with rounded top */}
+            <div className="bg-background rounded-t-2xl shadow-2xl border-t border-denim/20">
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pb-3 border-b border-border">
+                <h3 className="text-base font-semibold">Filters</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowMobileFilters(false)}
+                  className="p-2 -mr-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Filter content */}
+              <div className="px-5 py-5 max-h-[60vh] overflow-y-auto">
+                <FilterSidebar
+                  tags={tags || []}
+                  collections={collections || []}
+                  selectedTag={urlTag}
+                  selectedCollection={urlCollection}
+                  onTagSelect={(tag) => {
+                    updateFilters({ tag, collection: "" });
+                    setShowMobileFilters(false);
+                  }}
+                  onCollectionSelect={(id) => {
+                    updateFilters({ collection: id, tag: "" });
+                    setShowMobileFilters(false);
+                  }}
+                />
+              </div>
+
+              {/* Safe area padding for devices with home indicator */}
+              <div className="h-safe-area-inset-bottom pb-6" />
             </div>
-          )}
+          </div>
 
           {/* Main content */}
           <main className="flex-1 min-w-0">
