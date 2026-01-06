@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit, Eye, EyeOff, FolderOpen, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { Edit, Eye, EyeOff, FolderOpen, MoreHorizontal, Plus, Tag, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,26 @@ import { trpc } from "@/lib/trpc/client";
 import type { CollectionVisibility } from "@/lib/types";
 
 export default function CollectionsPage() {
+  // Create modal state
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newVisibility, setNewVisibility] = useState<CollectionVisibility>("private");
+  const [newDefaultTags, setNewDefaultTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState("");
+
+  // Edit modal state (stores the collection being edited)
+  const [editCollection, setEditCollection] = useState<{
+    id: string;
+    name: string;
+    visibility: "private" | "public";
+  } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editVisibility, setEditVisibility] = useState<CollectionVisibility>("private");
+  const [editDefaultTags, setEditDefaultTags] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState("");
 
   const { data: collections, isLoading } = trpc.space.listCollections.useQuery();
+  const { data: allTags } = trpc.space.listTags.useQuery();
   const utils = trpc.useUtils();
 
   const createCollection = trpc.space.createCollection.useMutation({
@@ -46,6 +61,15 @@ export default function CollectionsPage() {
       setNewCollectionOpen(false);
       setNewName("");
       setNewVisibility("private");
+      setNewDefaultTags([]);
+      setNewTagInput("");
+    },
+  });
+
+  const updateCollection = trpc.space.updateCollection.useMutation({
+    onSuccess: () => {
+      utils.space.listCollections.invalidate();
+      setEditCollection(null);
     },
   });
 
@@ -58,7 +82,102 @@ export default function CollectionsPage() {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    createCollection.mutate({ name: newName, visibility: newVisibility });
+    createCollection.mutate({
+      name: newName,
+      visibility: newVisibility,
+      defaultTagNames: newDefaultTags,
+    });
+  };
+
+  const handleEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editCollection || !editName.trim()) return;
+    updateCollection.mutate({
+      id: editCollection.id,
+      name: editName,
+      visibility: editVisibility,
+      defaultTagNames: editDefaultTags,
+    });
+  };
+
+  const openEditModal = (collection: {
+    id: string;
+    name: string;
+    visibility: "private" | "public";
+    defaultTags: { name: string }[];
+  }) => {
+    setEditCollection({
+      id: collection.id,
+      name: collection.name,
+      visibility: collection.visibility,
+    });
+    setEditName(collection.name);
+    setEditVisibility(collection.visibility);
+    setEditDefaultTags(collection.defaultTags.map((t) => t.name));
+    setEditTagInput("");
+  };
+
+  const addTag = (tagName: string, isEdit: boolean) => {
+    const normalized = tagName.toLowerCase().trim();
+    if (!normalized) return;
+
+    if (isEdit) {
+      if (!editDefaultTags.includes(normalized)) {
+        setEditDefaultTags([...editDefaultTags, normalized]);
+      }
+      setEditTagInput("");
+    } else {
+      if (!newDefaultTags.includes(normalized)) {
+        setNewDefaultTags([...newDefaultTags, normalized]);
+      }
+      setNewTagInput("");
+    }
+  };
+
+  const removeTag = (tagName: string, isEdit: boolean) => {
+    if (isEdit) {
+      setEditDefaultTags(editDefaultTags.filter((t) => t !== tagName));
+    } else {
+      setNewDefaultTags(newDefaultTags.filter((t) => t !== tagName));
+    }
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, isEdit: boolean) => {
+    const currentInput = isEdit ? editTagInput : newTagInput;
+    const currentTags = isEdit ? editDefaultTags : newDefaultTags;
+
+    if (e.key === "Tab" || e.key === "Enter") {
+      if (currentInput.trim()) {
+        e.preventDefault();
+        addTag(currentInput, isEdit);
+      }
+    } else if (e.key === "Backspace" && !currentInput && currentTags.length > 0) {
+      // Remove last tag when backspace is pressed on empty input
+      if (isEdit) {
+        setEditDefaultTags(editDefaultTags.slice(0, -1));
+      } else {
+        setNewDefaultTags(newDefaultTags.slice(0, -1));
+      }
+    }
+  };
+
+  const handleTagBlur = (isEdit: boolean) => {
+    const currentInput = isEdit ? editTagInput : newTagInput;
+    if (currentInput.trim()) {
+      addTag(currentInput, isEdit);
+    }
+  };
+
+  // Get tag suggestions (existing tags not already selected)
+  const getTagSuggestions = (currentTags: string[], inputValue: string) => {
+    if (!allTags || !inputValue.trim()) return [];
+    const normalized = inputValue.toLowerCase().trim();
+    return allTags
+      .filter(
+        (t) =>
+          t.name.toLowerCase().includes(normalized) && !currentTags.includes(t.name.toLowerCase())
+      )
+      .slice(0, 5);
   };
 
   if (isLoading) {
@@ -130,6 +249,53 @@ export default function CollectionsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="defaultTags">Default Tags</Label>
+                <p className="text-xs text-muted-foreground">
+                  Tags automatically applied to saves added to this collection
+                </p>
+                <div className="relative">
+                  <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[42px] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    {newDefaultTags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag, false)}
+                          className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <input
+                      id="defaultTags"
+                      type="text"
+                      value={newTagInput}
+                      onChange={(e) => setNewTagInput(e.target.value)}
+                      onKeyDown={(e) => handleTagKeyDown(e, false)}
+                      onBlur={() => handleTagBlur(false)}
+                      placeholder={newDefaultTags.length === 0 ? "Type a tag and press Tab..." : ""}
+                      className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  {newTagInput && getTagSuggestions(newDefaultTags, newTagInput).length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg">
+                      {getTagSuggestions(newDefaultTags, newTagInput).map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => addTag(tag.name, false)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                        >
+                          {tag.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Press Tab or Enter to add a tag</p>
+              </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setNewCollectionOpen(false)}>
                   Cancel
@@ -179,7 +345,7 @@ export default function CollectionsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openEditModal(collection)}>
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
@@ -201,6 +367,16 @@ export default function CollectionsPage() {
                 <p className="text-sm text-muted-foreground">
                   {collection._count?.saves ?? 0} saves
                 </p>
+                {collection.defaultTags && collection.defaultTags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {collection.defaultTags.map((tag) => (
+                      <Badge key={tag.id} variant="outline" className="gap-1 text-xs font-normal">
+                        <Tag className="h-2.5 w-2.5" />
+                        {tag.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -216,6 +392,97 @@ export default function CollectionsPage() {
           </Button>
         </div>
       )}
+
+      {/* Edit Collection Dialog */}
+      <Dialog open={!!editCollection} onOpenChange={(open) => !open && setEditCollection(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit collection</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                placeholder="e.g., Must Reads"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-visibility">Visibility</Label>
+              <Select
+                value={editVisibility}
+                onValueChange={(v) => setEditVisibility(v as CollectionVisibility)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-defaultTags">Default Tags</Label>
+              <p className="text-xs text-muted-foreground">
+                Tags automatically applied to saves added to this collection
+              </p>
+              <div className="relative">
+                <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[42px] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  {editDefaultTags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag, true)}
+                        className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <input
+                    id="edit-defaultTags"
+                    type="text"
+                    value={editTagInput}
+                    onChange={(e) => setEditTagInput(e.target.value)}
+                    onKeyDown={(e) => handleTagKeyDown(e, true)}
+                    onBlur={() => handleTagBlur(true)}
+                    placeholder={editDefaultTags.length === 0 ? "Type a tag and press Tab..." : ""}
+                    className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                {editTagInput && getTagSuggestions(editDefaultTags, editTagInput).length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-popover border rounded-md shadow-lg">
+                    {getTagSuggestions(editDefaultTags, editTagInput).map((tag) => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => addTag(tag.name, true)}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Press Tab or Enter to add a tag</p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditCollection(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateCollection.isPending}>
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

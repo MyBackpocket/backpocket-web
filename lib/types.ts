@@ -63,6 +63,7 @@ export interface Collection {
   updatedAt: Date;
   // Relations
   saves?: Save[];
+  defaultTags?: Tag[];
   _count?: {
     saves: number;
   };
@@ -234,6 +235,7 @@ export interface APICollection {
   visibility: CollectionVisibility;
   createdAt: string | Date;
   updatedAt: string | Date;
+  defaultTags?: APITag[];
   _count?: {
     saves: number;
   };

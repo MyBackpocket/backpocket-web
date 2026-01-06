@@ -422,6 +422,8 @@ Pre-check if a URL already exists before saving. Useful for showing instant feed
 
 All fields except `id` are optional.
 
+**Note:** If you remove tags from a save (by passing a `tagNames` array that doesn't include previously applied tags), any tags that become orphaned (no longer associated with any saves) are automatically deleted.
+
 ---
 
 #### Toggle Favorite
@@ -468,6 +470,8 @@ All fields except `id` are optional.
 }
 ```
 
+**Note:** Any tags that become orphaned (no longer associated with any saves) after deletion are automatically cleaned up.
+
 ---
 
 #### Bulk Delete Saves
@@ -483,6 +487,8 @@ All fields except `id` are optional.
 ```
 
 Max 100 saves per request.
+
+**Note:** Any tags that become orphaned (no longer associated with any saves) after deletion are automatically cleaned up.
 
 ---
 
@@ -1522,6 +1528,15 @@ These parameters affect content and are **not** stripped:
 ---
 
 ## Changelog
+
+### 2026-01-05 (b)
+
+#### Added
+
+- **Orphan Tag Cleanup:** Tags that no longer have any associated saves are automatically deleted. This happens when:
+  - A save is deleted (`deleteSave`, `bulkDeleteSaves`)
+  - Tags are removed from a save via `updateSave`
+  - Direct SQL operations remove entries from `save_tags`
 
 ### 2026-01-06
 

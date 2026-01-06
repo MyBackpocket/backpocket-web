@@ -395,6 +395,45 @@ export const savesRouter = router({
               updatedAt: new Date(col.updated_at),
             });
           }
+
+          // Auto-apply default tags from collections
+          const collectionIds = validCollections.map((c) => c.id);
+          const { data: defaultTagLinks } = await supabaseAdmin
+            .from("collection_default_tags")
+            .select("tag_id")
+            .in("collection_id", collectionIds);
+
+          if (defaultTagLinks && defaultTagLinks.length > 0) {
+            const defaultTagIds = [...new Set(defaultTagLinks.map((l) => l.tag_id))];
+            // Filter out tags already added via tagNames input
+            const existingTagIds = new Set(tags.map((t) => t.id));
+            const newDefaultTagIds = defaultTagIds.filter((id) => !existingTagIds.has(id));
+
+            if (newDefaultTagIds.length > 0) {
+              // Add the default tags to the save
+              await supabaseAdmin
+                .from("save_tags")
+                .insert(newDefaultTagIds.map((tagId) => ({ save_id: save.id, tag_id: tagId })));
+
+              // Fetch the tag details to include in response
+              const { data: defaultTags } = await supabaseAdmin
+                .from("tags")
+                .select("*")
+                .in("id", newDefaultTagIds);
+
+              if (defaultTags) {
+                for (const tag of defaultTags) {
+                  tags.push({
+                    id: tag.id,
+                    spaceId: tag.space_id,
+                    name: tag.name,
+                    createdAt: new Date(tag.created_at),
+                    updatedAt: new Date(tag.updated_at),
+                  });
+                }
+              }
+            }
+          }
         }
       }
 
@@ -502,9 +541,28 @@ export const savesRouter = router({
         }
       }
 
-      // Update collections if provided - batch operations
+      // Update collections if provided - batch operations with smart tag handling
       let collections: Collection[] = [];
       if (input.collectionIds !== undefined) {
+        // Get current collections for smart tag removal
+        const { data: currentCollectionLinks } = await supabaseAdmin
+          .from("save_collections")
+          .select("collection_id")
+          .eq("save_id", save.id);
+
+        const currentCollectionIds = new Set(
+          (currentCollectionLinks || []).map((l) => l.collection_id)
+        );
+        const newCollectionIds = new Set(input.collectionIds);
+
+        // Determine added and removed collections
+        const addedCollectionIds = input.collectionIds.filter(
+          (id) => !currentCollectionIds.has(id)
+        );
+        const removedCollectionIds = [...currentCollectionIds].filter(
+          (id) => !newCollectionIds.has(id)
+        );
+
         // Remove existing collections first
         await supabaseAdmin.from("save_collections").delete().eq("save_id", save.id);
 
@@ -530,6 +588,74 @@ export const savesRouter = router({
               createdAt: new Date(col.created_at),
               updatedAt: new Date(col.updated_at),
             }));
+          }
+        }
+
+        // Handle auto-tagging for added collections (only if tags weren't explicitly set)
+        if (input.tagNames === undefined && addedCollectionIds.length > 0) {
+          const { data: addedDefaultTagLinks } = await supabaseAdmin
+            .from("collection_default_tags")
+            .select("tag_id")
+            .in("collection_id", addedCollectionIds);
+
+          if (addedDefaultTagLinks && addedDefaultTagLinks.length > 0) {
+            const addedTagIds = [...new Set(addedDefaultTagLinks.map((l) => l.tag_id))];
+
+            // Get current save tags
+            const { data: currentSaveTags } = await supabaseAdmin
+              .from("save_tags")
+              .select("tag_id")
+              .eq("save_id", save.id);
+
+            const currentTagIds = new Set((currentSaveTags || []).map((t) => t.tag_id));
+            const newTagsToAdd = addedTagIds.filter((id) => !currentTagIds.has(id));
+
+            if (newTagsToAdd.length > 0) {
+              await supabaseAdmin
+                .from("save_tags")
+                .insert(newTagsToAdd.map((tagId) => ({ save_id: save.id, tag_id: tagId })));
+            }
+          }
+        }
+
+        // Handle smart tag removal for removed collections (only if tags weren't explicitly set)
+        if (input.tagNames === undefined && removedCollectionIds.length > 0) {
+          // Get default tags from removed collections
+          const { data: removedDefaultTagLinks } = await supabaseAdmin
+            .from("collection_default_tags")
+            .select("tag_id")
+            .in("collection_id", removedCollectionIds);
+
+          if (removedDefaultTagLinks && removedDefaultTagLinks.length > 0) {
+            const removedDefaultTagIds = new Set(removedDefaultTagLinks.map((l) => l.tag_id));
+
+            // Get default tags from remaining collections
+            const remainingCollectionIds = input.collectionIds;
+            let remainingDefaultTagIds = new Set<string>();
+
+            if (remainingCollectionIds.length > 0) {
+              const { data: remainingDefaultTagLinks } = await supabaseAdmin
+                .from("collection_default_tags")
+                .select("tag_id")
+                .in("collection_id", remainingCollectionIds);
+
+              remainingDefaultTagIds = new Set(
+                (remainingDefaultTagLinks || []).map((l) => l.tag_id)
+              );
+            }
+
+            // Tags to remove = removed defaults - remaining defaults
+            const tagsToRemove = [...removedDefaultTagIds].filter(
+              (id) => !remainingDefaultTagIds.has(id)
+            );
+
+            if (tagsToRemove.length > 0) {
+              await supabaseAdmin
+                .from("save_tags")
+                .delete()
+                .eq("save_id", save.id)
+                .in("tag_id", tagsToRemove);
+            }
           }
         }
       }
