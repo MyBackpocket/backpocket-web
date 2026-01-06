@@ -1,9 +1,20 @@
-import { ArrowLeft, BookOpen, Calendar, Clock, ExternalLink, Globe, Rss, User } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Calendar,
+  Clock,
+  ExternalLink,
+  FileText,
+  Globe,
+  Info,
+  Rss,
+  User,
+} from "lucide-react";
 import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { LogoIcon } from "@/components/logo";
-import { ScrollToTop } from "@/components/scroll-to-top";
+import { ScrollNavigator } from "@/components/scroll-navigator";
 import { ThemeSwitcherCompact } from "@/components/theme-switcher";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -182,9 +193,19 @@ export default async function PublicSavePermalinkPage({
             </div>
           )}
 
-          {/* Description (only show if no snapshot content) */}
-          {save.description && !snapshot?.content && (
-            <p className="mt-8 text-lg text-muted-foreground leading-relaxed">{save.description}</p>
+          {/* Description */}
+          {save.description && (
+            <Card className="mt-8">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  Description
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">{save.description}</p>
+              </CardContent>
+            </Card>
           )}
 
           {/* Reader Mode Content */}
@@ -212,10 +233,38 @@ export default async function PublicSavePermalinkPage({
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Disclaimer */}
+                <div className="mb-4 pb-4 border-b border-dashed">
+                  <p className="flex items-start gap-2 text-xs text-muted-foreground/70">
+                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      This simplified view was extracted using{" "}
+                      <a
+                        href="https://github.com/mozilla/readability"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                      >
+                        Mozilla Readability
+                      </a>
+                      , the same technology behind Firefox Reader View. For the complete experience,{" "}
+                      <a
+                        href={save.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                      >
+                        visit the original
+                      </a>
+                      .
+                    </span>
+                  </p>
+                </div>
+
                 {/* Byline */}
                 {snapshot.content.byline && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                    <User className="h-4 w-4" />
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <User className="h-4 w-4 shrink-0 mt-0.5" />
                     <span>{snapshot.content.byline}</span>
                   </div>
                 )}
@@ -285,8 +334,8 @@ export default async function PublicSavePermalinkPage({
         </div>
       </footer>
 
-      {/* Scroll to top button */}
-      <ScrollToTop />
+      {/* Scroll navigation with progress and section markers */}
+      <ScrollNavigator contentSelector="article" />
     </div>
   );
 }

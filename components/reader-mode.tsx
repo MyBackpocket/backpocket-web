@@ -5,6 +5,7 @@ import {
   BookOpen,
   Clock,
   ExternalLink,
+  Info,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -277,10 +278,38 @@ export function ReaderMode({
           </div>
         </CardHeader>
         <CardContent>
+          {/* Disclaimer */}
+          <div className="mb-4 pb-4 border-b border-dashed">
+            <p className="flex items-start gap-2 text-xs text-muted-foreground/70">
+              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>
+                This simplified view was extracted using{" "}
+                <a
+                  href="https://github.com/mozilla/readability"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                >
+                  Mozilla Readability
+                </a>
+                , the same technology behind Firefox Reader View. For the complete experience,{" "}
+                <a
+                  href={originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                >
+                  visit the original
+                </a>
+                .
+              </span>
+            </p>
+          </div>
+
           {/* Byline */}
           {content.byline && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-              <User className="h-4 w-4" />
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{content.byline}</span>
             </div>
           )}

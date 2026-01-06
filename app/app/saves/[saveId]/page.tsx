@@ -4,12 +4,14 @@ import {
   Archive,
   ArrowLeft,
   Calendar,
-  Edit,
+  Check,
   ExternalLink,
   Eye,
   EyeOff,
+  FileText,
   Folder,
   Globe,
+  Hand,
   Loader2,
   Pencil,
   Plus,
@@ -22,9 +24,9 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useCallback, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { ReaderMode } from "@/components/reader-mode";
-import { ScrollToTop } from "@/components/scroll-to-top";
+import { ScrollNavigator } from "@/components/scroll-navigator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,21 +38,653 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import { routes } from "@/lib/constants/routes";
 import { trpc } from "@/lib/trpc/client";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
+
+// ============================================================================
+// Inline Editable Components
+// ============================================================================
+
+interface EditableTextProps {
+  value: string;
+  placeholder?: string;
+  onSave: (value: string) => void;
+  isSaving?: boolean;
+  className?: string;
+  inputClassName?: string;
+  as?: "h1" | "p" | "span";
+}
+
+function EditableText({
+  value,
+  placeholder = "Click to edit...",
+  onSave,
+  isSaving,
+  className,
+  inputClassName,
+  as: Component = "span",
+}: EditableTextProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+      // Auto-resize to fit content
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [isEditing]);
+
+  const handleSave = useCallback(() => {
+    const trimmed = editValue.trim();
+    if (trimmed !== value) {
+      onSave(trimmed);
+    }
+    setIsEditing(false);
+  }, [editValue, value, onSave]);
+
+  const handleCancel = useCallback(() => {
+    setEditValue(value);
+    setIsEditing(false);
+  }, [value]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Save on Enter (without shift for new line)
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSave();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancel();
+      }
+    },
+    [handleSave, handleCancel]
+  );
+
+  if (isEditing) {
+    return (
+      <div className="flex items-start gap-2">
+        <textarea
+          ref={textareaRef}
+          value={editValue}
+          onChange={(e) => {
+            setEditValue(e.target.value);
+            // Auto-resize on input
+            e.target.style.height = "auto";
+            e.target.style.height = `${e.target.scrollHeight}px`;
+          }}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            "flex-1 bg-transparent border-b-2 border-primary outline-none resize-none overflow-hidden",
+            inputClassName
+          )}
+          disabled={isSaving}
+          rows={1}
+        />
+        {isSaving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-1" />}
+      </div>
+    );
+  }
+
+  return (
+    <Component
+      onClick={() => setIsEditing(true)}
+      className={cn(
+        "group/editable cursor-pointer inline-flex items-center gap-2 rounded-md transition-colors",
+        "hover:bg-muted/50 -mx-2 px-2 py-0.5",
+        !value && "text-muted-foreground italic",
+        className
+      )}
+    >
+      {value || placeholder}
+      <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/editable:opacity-100 transition-opacity shrink-0" />
+    </Component>
+  );
+}
+
+interface EditableTextareaProps {
+  value: string;
+  placeholder?: string;
+  onSave: (value: string) => void;
+  isSaving?: boolean;
+  className?: string;
+}
+
+function EditableTextarea({
+  value,
+  placeholder = "Click to add a description...",
+  onSave,
+  isSaving,
+  className,
+}: EditableTextareaProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.select();
+      // Auto-resize
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [isEditing]);
+
+  const handleSave = useCallback(() => {
+    const trimmed = editValue.trim();
+    if (trimmed !== value) {
+      onSave(trimmed);
+    }
+    setIsEditing(false);
+  }, [editValue, value, onSave]);
+
+  const handleCancel = useCallback(() => {
+    setEditValue(value);
+    setIsEditing(false);
+  }, [value]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancel();
+      } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleSave();
+      }
+    },
+    [handleSave, handleCancel]
+  );
+
+  if (isEditing) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            Description
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <textarea
+            ref={textareaRef}
+            value={editValue}
+            onChange={(e) => {
+              setEditValue(e.target.value);
+              // Auto-resize
+              e.target.style.height = "auto";
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className={cn(
+              "w-full bg-transparent border rounded-md border-primary px-3 py-2 outline-none resize-none min-h-[80px]",
+              className
+            )}
+            disabled={isSaving}
+            placeholder={placeholder}
+          />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {isSaving ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <span>⌘+Enter to save · Esc to cancel</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      onClick={() => setIsEditing(true)}
+      className="group/editable cursor-pointer transition-colors hover:bg-muted/30 relative"
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <FileText className="h-4 w-4 text-muted-foreground" />
+          Description
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className={cn("text-muted-foreground", !value && "italic")}>{value || placeholder}</p>
+      </CardContent>
+      <Pencil className="absolute top-4 right-4 h-4 w-4 text-muted-foreground opacity-0 group-hover/editable:opacity-100 transition-opacity" />
+    </Card>
+  );
+}
+
+interface InlineTagsEditorProps {
+  tags: string[];
+  onSave: (tags: string[]) => void;
+  isSaving?: boolean;
+}
+
+function InlineTagsEditor({ tags, onSave, isSaving }: InlineTagsEditorProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTags, setEditTags] = useState<string[]>(tags);
+  const [tagInput, setTagInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditTags(tags);
+  }, [tags]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
+  const handleAddTag = useCallback(() => {
+    const trimmed = tagInput.trim().toLowerCase();
+    if (trimmed && !editTags.includes(trimmed)) {
+      setEditTags((prev) => [...prev, trimmed]);
+    }
+    setTagInput("");
+  }, [tagInput, editTags]);
+
+  const handleRemoveTag = useCallback((tagToRemove: string) => {
+    setEditTags((prev) => prev.filter((t) => t !== tagToRemove));
+  }, []);
+
+  const handleSave = useCallback(() => {
+    // Include any pending tag input
+    const finalTags = tagInput.trim() ? [...editTags, tagInput.trim().toLowerCase()] : editTags;
+    const uniqueTags = [...new Set(finalTags)];
+
+    if (JSON.stringify(uniqueTags) !== JSON.stringify(tags)) {
+      onSave(uniqueTags);
+    }
+    setTagInput("");
+    setIsEditing(false);
+  }, [editTags, tagInput, tags, onSave]);
+
+  const handleCancel = useCallback(() => {
+    setEditTags(tags);
+    setTagInput("");
+    setIsEditing(false);
+  }, [tags]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Tab" || e.key === "Enter") {
+        if (tagInput.trim()) {
+          e.preventDefault();
+          handleAddTag();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          handleSave();
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        handleCancel();
+      } else if (e.key === "Backspace" && !tagInput && editTags.length > 0) {
+        setEditTags((prev) => prev.slice(0, -1));
+      }
+    },
+    [tagInput, editTags.length, handleAddTag, handleSave, handleCancel]
+  );
+
+  if (isEditing) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Tag className="h-4 w-4 text-muted-foreground" />
+            Tags
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-background px-3 py-2 min-h-[42px]">
+            {editTags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            <input
+              ref={inputRef}
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={editTags.length === 0 ? "Type a tag..." : ""}
+              className="flex-1 min-w-[80px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              disabled={isSaving}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Check className="h-3 w-3 mr-1" />
+              )}
+              Done
+            </Button>
+            <span className="text-xs text-muted-foreground">Tab to add · Enter to save</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      onClick={() => setIsEditing(true)}
+      className="group/editable cursor-pointer transition-colors hover:bg-muted/30 relative"
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          Tags
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {tags.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground italic">No tags</span>
+        )}
+      </CardContent>
+      <Pencil className="absolute top-4 right-4 h-4 w-4 text-muted-foreground opacity-0 group-hover/editable:opacity-100 transition-opacity" />
+    </Card>
+  );
+}
+
+interface InlineCollectionsEditorProps {
+  selectedIds: string[];
+  allCollections: Array<{ id: string; name: string }>;
+  onSave: (collectionIds: string[]) => void;
+  onCreateCollection: (name: string) => void;
+  isSaving?: boolean;
+  isCreating?: boolean;
+}
+
+function InlineCollectionsEditor({
+  selectedIds,
+  allCollections,
+  onSave,
+  onCreateCollection,
+  isSaving,
+  isCreating,
+}: InlineCollectionsEditorProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editIds, setEditIds] = useState<string[]>(selectedIds);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newName, setNewName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditIds(selectedIds);
+  }, [selectedIds]);
+
+  useEffect(() => {
+    if (isCreatingNew && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isCreatingNew]);
+
+  const handleToggle = useCallback((id: string) => {
+    setEditIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  }, []);
+
+  const handleSave = useCallback(() => {
+    if (JSON.stringify(editIds.sort()) !== JSON.stringify(selectedIds.sort())) {
+      onSave(editIds);
+    }
+    setIsEditing(false);
+  }, [editIds, selectedIds, onSave]);
+
+  const handleCancel = useCallback(() => {
+    setEditIds(selectedIds);
+    setIsEditing(false);
+    setIsCreatingNew(false);
+    setNewName("");
+  }, [selectedIds]);
+
+  const handleCreateNew = useCallback(() => {
+    const trimmed = newName.trim();
+    if (trimmed) {
+      onCreateCollection(trimmed);
+      setNewName("");
+      setIsCreatingNew(false);
+    }
+  }, [newName, onCreateCollection]);
+
+  const handleNewKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleCreateNew();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setIsCreatingNew(false);
+        setNewName("");
+      }
+    },
+    [handleCreateNew]
+  );
+
+  const selectedCollections = allCollections.filter((c) => selectedIds.includes(c.id));
+
+  if (isEditing) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Folder className="h-4 w-4 text-muted-foreground" />
+            Collections
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {allCollections.map((col) => {
+              const isSelected = editIds.includes(col.id);
+              return (
+                <Badge
+                  key={col.id}
+                  variant={isSelected ? "default" : "outline"}
+                  className={cn(
+                    "cursor-pointer transition-colors",
+                    isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  )}
+                  onClick={() => handleToggle(col.id)}
+                >
+                  {col.name}
+                </Badge>
+              );
+            })}
+            {isCreatingNew ? (
+              <div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={handleNewKeyDown}
+                  onBlur={() => {
+                    if (!newName.trim()) {
+                      setIsCreatingNew(false);
+                    }
+                  }}
+                  placeholder="Name..."
+                  className="w-24 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  disabled={isCreating}
+                />
+                {isCreating ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreatingNew(false);
+                      setNewName("");
+                    }}
+                    className="rounded p-0.5 hover:bg-muted transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Badge
+                variant="outline"
+                className="cursor-pointer gap-1 border-dashed hover:bg-muted transition-colors"
+                onClick={() => setIsCreatingNew(true)}
+              >
+                <Plus className="h-3 w-3" />
+                New
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Check className="h-3 w-3 mr-1" />
+              )}
+              Done
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card
+      onClick={() => setIsEditing(true)}
+      className="group/editable cursor-pointer transition-colors hover:bg-muted/30 relative"
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
+          <Folder className="h-4 w-4 text-muted-foreground" />
+          Collections
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {selectedCollections.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {selectedCollections.map((col) => (
+              <Badge key={col.id} variant="secondary">
+                {col.name}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground italic">No collections</span>
+        )}
+      </CardContent>
+      <Pencil className="absolute top-4 right-4 h-4 w-4 text-muted-foreground opacity-0 group-hover/editable:opacity-100 transition-opacity" />
+    </Card>
+  );
+}
+
+// ============================================================================
+// Mobile Edit Tip Component
+// ============================================================================
+
+const MOBILE_TIP_STORAGE_KEY = "backpocket-mobile-edit-tip-dismissed";
+
+function MobileEditTip() {
+  const [isDismissed, setIsDismissed] = useState(true); // Start hidden to avoid flash
+  const [isMobile, setIsMobile] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    // Use matchMedia for reliable mobile detection (works with viewport changes)
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(e.matches);
+    };
+    // Check initial value
+    handleChange(mediaQuery);
+    // Listen for changes
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    // Check localStorage after mount
+    const dismissed = localStorage.getItem(MOBILE_TIP_STORAGE_KEY);
+    const shouldShow = dismissed !== "true";
+    setIsDismissed(!shouldShow);
+    // Delay showing for smooth animation
+    if (shouldShow) {
+      const timer = setTimeout(() => setIsVisible(true), 100);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleDismiss = useCallback(() => {
+    setIsVisible(false);
+    // Delay actual dismissal for exit animation
+    setTimeout(() => {
+      setIsDismissed(true);
+      localStorage.setItem(MOBILE_TIP_STORAGE_KEY, "true");
+    }, 200);
+  }, []);
+
+  // Only show on mobile and if not dismissed
+  if (!isMobile || isDismissed) return null;
+
+  return (
+    <div
+      className={cn(
+        "fixed top-4 left-4 right-4 z-50 flex items-center gap-3 rounded-lg bg-background/95 backdrop-blur-sm border shadow-lg px-4 py-3 text-sm transition-all duration-200",
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
+      )}
+    >
+      <Hand className="h-5 w-5 text-primary shrink-0" />
+      <p className="flex-1 text-muted-foreground">
+        <span className="font-medium text-foreground">Tip:</span> Tap any card to edit it
+      </p>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        className="rounded-full p-1.5 hover:bg-muted transition-colors"
+        aria-label="Dismiss tip"
+      >
+        <X className="h-4 w-4 text-muted-foreground" />
+      </button>
+    </div>
+  );
+}
 
 const IS_DEV = process.env.NODE_ENV === "development";
 
@@ -62,30 +696,12 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
 
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: "",
-    description: "",
-    visibility: "private" as "private" | "public",
-    tags: [] as string[],
-    collectionIds: [] as string[],
-  });
-  const [tagInput, setTagInput] = useState("");
-  const [collectionInput, setCollectionInput] = useState("");
-  const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
-  // Fetch collections for the edit dialog
+  // Fetch collections for inline editing
   const { data: allCollections } = trpc.space.listCollections.useQuery();
 
   const createCollection = trpc.space.createCollection.useMutation({
-    onSuccess: (newCollection) => {
-      // Add the new collection to selection and invalidate the list
-      setEditForm((prev) => ({
-        ...prev,
-        collectionIds: [...prev.collectionIds, newCollection.id],
-      }));
-      setCollectionInput("");
-      setIsCreatingCollection(false);
+    onSuccess: () => {
       utils.space.listCollections.invalidate();
     },
   });
@@ -191,93 +807,50 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
       utils.space.getSave.invalidate({ saveId });
       utils.space.listSaves.invalidate();
       utils.space.getDashboardData.invalidate();
-      setShowEditDialog(false);
     },
   });
 
-  const handleOpenEditDialog = useCallback(() => {
-    if (save) {
-      setEditForm({
-        title: save.title || "",
-        description: save.description || "",
-        visibility: save.visibility,
-        tags: save.tags?.map((t) => t.name) || [],
-        collectionIds: save.collections?.map((c) => c.id) || [],
-      });
-      setTagInput("");
-      setCollectionInput("");
-      setIsCreatingCollection(false);
-      setShowEditDialog(true);
-    }
-  }, [save]);
-
-  const handleSaveEdit = useCallback(() => {
-    // Include any pending tag input that wasn't added yet
-    const finalTags = tagInput.trim() ? [...editForm.tags, tagInput.trim()] : editForm.tags;
-
-    updateSave.mutate({
-      id: saveId,
-      title: editForm.title || undefined,
-      description: editForm.description || undefined,
-      visibility: editForm.visibility,
-      tagNames: finalTags,
-      collectionIds: editForm.collectionIds,
-    });
-  }, [saveId, editForm, tagInput, updateSave]);
-
-  const handleAddTag = useCallback(() => {
-    const trimmed = tagInput.trim().toLowerCase();
-    if (trimmed && !editForm.tags.includes(trimmed)) {
-      setEditForm((prev) => ({ ...prev, tags: [...prev.tags, trimmed] }));
-    }
-    setTagInput("");
-  }, [tagInput, editForm.tags]);
-
-  const handleRemoveTag = useCallback((tagToRemove: string) => {
-    setEditForm((prev) => ({
-      ...prev,
-      tags: prev.tags.filter((t) => t !== tagToRemove),
-    }));
-  }, []);
-
-  const handleTagKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Tab" || e.key === "Enter") {
-        if (tagInput.trim()) {
-          e.preventDefault();
-          handleAddTag();
-        }
-      } else if (e.key === "Backspace" && !tagInput && editForm.tags.length > 0) {
-        // Remove last tag when backspace is pressed on empty input
-        setEditForm((prev) => ({
-          ...prev,
-          tags: prev.tags.slice(0, -1),
-        }));
-      }
+  // Inline update handlers
+  const handleUpdateTitle = useCallback(
+    (title: string) => {
+      updateSave.mutate({ id: saveId, title: title || undefined });
     },
-    [tagInput, editForm.tags, handleAddTag]
+    [saveId, updateSave]
   );
 
-  const handleCreateCollection = useCallback(() => {
-    const trimmed = collectionInput.trim();
-    if (trimmed && !createCollection.isPending) {
-      createCollection.mutate({ name: trimmed });
-    }
-  }, [collectionInput, createCollection]);
-
-  const handleCollectionKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Tab" || e.key === "Enter") {
-        if (collectionInput.trim()) {
-          e.preventDefault();
-          handleCreateCollection();
-        }
-      } else if (e.key === "Escape") {
-        setIsCreatingCollection(false);
-        setCollectionInput("");
-      }
+  const handleUpdateDescription = useCallback(
+    (description: string) => {
+      updateSave.mutate({ id: saveId, description: description || undefined });
     },
-    [collectionInput, handleCreateCollection]
+    [saveId, updateSave]
+  );
+
+  const handleUpdateVisibility = useCallback(
+    (visibility: "private" | "public") => {
+      updateSave.mutate({ id: saveId, visibility });
+    },
+    [saveId, updateSave]
+  );
+
+  const handleUpdateTags = useCallback(
+    (tags: string[]) => {
+      updateSave.mutate({ id: saveId, tagNames: tags });
+    },
+    [saveId, updateSave]
+  );
+
+  const handleUpdateCollections = useCallback(
+    (collectionIds: string[]) => {
+      updateSave.mutate({ id: saveId, collectionIds });
+    },
+    [saveId, updateSave]
+  );
+
+  const handleCreateCollection = useCallback(
+    (name: string) => {
+      createCollection.mutate({ name });
+    },
+    [createCollection]
   );
 
   const handleConfirmDelete = useCallback(() => {
@@ -375,6 +948,64 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           Back to saves
         </Link>
 
+        {/* Dev-only: Dev tools at top for easy access */}
+        {IS_DEV && (
+          <Card className="mb-6 border-dashed border-yellow-500/50 bg-yellow-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-600">
+                <Zap className="h-4 w-4" />
+                Dev Tools
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDevTriggerSnapshot}
+                disabled={isDevTriggering}
+                className="border-yellow-500/50 hover:bg-yellow-500/10"
+              >
+                {isDevTriggering ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    Trigger Snapshot
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem(MOBILE_TIP_STORAGE_KEY);
+                  window.location.reload();
+                }}
+                className="border-yellow-500/50 hover:bg-yellow-500/10"
+              >
+                <Hand className="mr-2 h-4 w-4" />
+                Reset Mobile Tip
+              </Button>
+              {devTriggerResult && (
+                <span
+                  className={cn(
+                    "text-sm",
+                    devTriggerResult.startsWith("✓") ? "text-green-600" : "text-muted-foreground"
+                  )}
+                >
+                  {devTriggerResult}
+                </span>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Mobile edit tip - only shows on first visit on mobile */}
+        <MobileEditTip />
+
         {/* Image - links to source */}
         {save.imageUrl && (
           <a
@@ -390,10 +1021,18 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </a>
         )}
 
-        {/* Title */}
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">{save.title || save.url}</h1>
+        {/* Title - Inline Editable */}
+        <EditableText
+          value={save.title || ""}
+          placeholder={save.url}
+          onSave={handleUpdateTitle}
+          isSaving={updateSave.isPending}
+          className="text-2xl font-semibold tracking-tight mb-2"
+          inputClassName="text-2xl font-semibold tracking-tight"
+          as="h1"
+        />
 
-        {/* Meta row: source, date, and status badges */}
+        {/* Meta row: source, date, and visibility */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mb-4">
           <a
             href={save.url}
@@ -411,10 +1050,21 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             {formatDate(save.savedAt)}
           </span>
           <span className="hidden sm:inline">•</span>
-          <Badge variant="secondary" className={cn("gap-1", visibility.color)}>
-            <visibility.icon className="h-3 w-3" />
-            {visibility.label}
-          </Badge>
+          {/* Visibility - Inline Editable via click */}
+          <button
+            type="button"
+            onClick={() =>
+              handleUpdateVisibility(save.visibility === "public" ? "private" : "public")
+            }
+            className="group/visibility inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 transition-colors hover:bg-muted/50"
+            disabled={updateSave.isPending}
+          >
+            <Badge variant="secondary" className={cn("gap-1", visibility.color)}>
+              <visibility.icon className="h-3 w-3" />
+              {visibility.label}
+            </Badge>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/visibility:opacity-100 transition-opacity" />
+          </button>
         </div>
 
         {/* Action toolbar */}
@@ -437,10 +1087,6 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             <Archive className="h-4 w-4" />
             <span className="hidden sm:inline">{save.isArchived ? "Unarchive" : "Archive"}</span>
           </Button>
-          <Button variant="outline" size="sm" onClick={handleOpenEditDialog} className="gap-2">
-            <Edit className="h-4 w-4" />
-            <span className="hidden sm:inline">Edit</span>
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -452,80 +1098,34 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </Button>
         </div>
 
-        {/* Description */}
-        {save.description && (
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <p className="text-muted-foreground">{save.description}</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Description - Inline Editable */}
+        <div className="mb-6">
+          <EditableTextarea
+            value={save.description || ""}
+            placeholder="Click to add a description..."
+            onSave={handleUpdateDescription}
+            isSaving={updateSave.isPending}
+          />
+        </div>
 
-        {/* Metadata */}
+        {/* Metadata - Inline Editable */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Tags */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                Tags
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                onClick={handleOpenEditDialog}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                <span className="sr-only">Edit tags</span>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {save.tags && save.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {save.tags.map((tag) => (
-                    <Badge key={tag.id} variant="outline">
-                      {tag.name}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No tags</p>
-              )}
-            </CardContent>
-          </Card>
+          <InlineTagsEditor
+            tags={save.tags?.map((t) => t.name) || []}
+            onSave={handleUpdateTags}
+            isSaving={updateSave.isPending}
+          />
 
           {/* Collections */}
-          <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Folder className="h-4 w-4 text-muted-foreground" />
-                Collections
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                onClick={handleOpenEditDialog}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                <span className="sr-only">Edit collections</span>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {save.collections && save.collections.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {save.collections.map((col) => (
-                    <Badge key={col.id} variant="secondary">
-                      {col.name}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No collections</p>
-              )}
-            </CardContent>
-          </Card>
+          <InlineCollectionsEditor
+            selectedIds={save.collections?.map((c) => c.id) || []}
+            allCollections={allCollections || []}
+            onSave={handleUpdateCollections}
+            onCreateCollection={handleCreateCollection}
+            isSaving={updateSave.isPending}
+            isCreating={createCollection.isPending}
+          />
         </div>
 
         {/* Reader Mode */}
@@ -541,49 +1141,6 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             originalUrl={save.url}
           />
         </div>
-
-        {/* Dev-only: Manual snapshot trigger */}
-        {IS_DEV && (
-          <Card className="mt-6 border-dashed border-yellow-500/50 bg-yellow-500/5">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-600">
-                <Zap className="h-4 w-4" />
-                Dev Tools
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDevTriggerSnapshot}
-                disabled={isDevTriggering}
-                className="border-yellow-500/50 hover:bg-yellow-500/10"
-              >
-                {isDevTriggering ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Trigger Snapshot Now
-                  </>
-                )}
-              </Button>
-              {devTriggerResult && (
-                <span
-                  className={cn(
-                    "text-sm",
-                    devTriggerResult.startsWith("✓") ? "text-green-600" : "text-muted-foreground"
-                  )}
-                >
-                  {devTriggerResult}
-                </span>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -617,191 +1174,8 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </DialogContent>
         </Dialog>
 
-        {/* Edit Dialog */}
-        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-          <DialogContent className="max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit save</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="Enter a title..."
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={editForm.description}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, description: e.target.value }))
-                  }
-                  placeholder="Add a description..."
-                  rows={3}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="visibility">Visibility</Label>
-                <Select
-                  value={editForm.visibility}
-                  onValueChange={(value: "private" | "public") =>
-                    setEditForm((prev) => ({ ...prev, visibility: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="private">
-                      <span className="flex items-center gap-2">
-                        <EyeOff className="h-4 w-4" />
-                        Private — Only you can see this
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="public">
-                      <span className="flex items-center gap-2">
-                        <Eye className="h-4 w-4" />
-                        Public — Visible on your public space and RSS feed
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Separator />
-              <div className="grid gap-2">
-                <Label htmlFor="tags" className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                  Tags
-                </Label>
-                <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[42px] focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-                  {editForm.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="gap-1 pr-1 text-xs">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                        <span className="sr-only">Remove {tag}</span>
-                      </button>
-                    </Badge>
-                  ))}
-                  <input
-                    id="tags"
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={handleTagKeyDown}
-                    onBlur={handleAddTag}
-                    placeholder={editForm.tags.length === 0 ? "Type a tag and press Tab..." : ""}
-                    className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">Press Tab or Enter to add a tag</p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="collections" className="flex items-center gap-2">
-                  <Folder className="h-4 w-4 text-muted-foreground" />
-                  Collections
-                </Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  {allCollections?.map((col) => {
-                    const isSelected = editForm.collectionIds.includes(col.id);
-                    return (
-                      <Badge
-                        key={col.id}
-                        variant={isSelected ? "default" : "outline"}
-                        className={cn(
-                          "cursor-pointer transition-colors",
-                          isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-                        )}
-                        onClick={() =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            collectionIds: isSelected
-                              ? prev.collectionIds.filter((id) => id !== col.id)
-                              : [...prev.collectionIds, col.id],
-                          }))
-                        }
-                      >
-                        {col.name}
-                      </Badge>
-                    );
-                  })}
-                  {isCreatingCollection ? (
-                    <div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1">
-                      <input
-                        type="text"
-                        value={collectionInput}
-                        onChange={(e) => setCollectionInput(e.target.value)}
-                        onKeyDown={handleCollectionKeyDown}
-                        onBlur={() => {
-                          if (!collectionInput.trim()) {
-                            setIsCreatingCollection(false);
-                          }
-                        }}
-                        placeholder="Collection name..."
-                        className="w-28 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                        autoFocus
-                        disabled={createCollection.isPending}
-                      />
-                      {createCollection.isPending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsCreatingCollection(false);
-                            setCollectionInput("");
-                          }}
-                          className="rounded p-0.5 hover:bg-muted transition-colors"
-                        >
-                          <X className="h-3.5 w-3.5 text-muted-foreground" />
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer gap-1 border-dashed hover:bg-muted transition-colors"
-                      onClick={() => setIsCreatingCollection(true)}
-                    >
-                      <Plus className="h-3 w-3" />
-                      New
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Click to select, or create a new collection
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEdit} disabled={updateSave.isPending}>
-                {updateSave.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save changes"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Scroll to top button */}
-        <ScrollToTop />
+        {/* Scroll navigation with progress and section markers */}
+        <ScrollNavigator contentSelector="article" />
       </div>
     </div>
   );
