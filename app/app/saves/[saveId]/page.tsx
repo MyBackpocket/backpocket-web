@@ -826,8 +826,8 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
   );
 
   const handleUpdateVisibility = useCallback(
-    (visibility: "private" | "public") => {
-      updateSave.mutate({ id: saveId, visibility });
+    (newVisibility: "private" | "public") => {
+      updateSave.mutate({ id: saveId, visibility: newVisibility });
     },
     [saveId, updateSave]
   );
@@ -928,13 +928,6 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
       </div>
     );
   }
-
-  const visibilityConfig = {
-    public: { icon: Eye, label: "Public", color: "text-green-600" },
-    private: { icon: EyeOff, label: "Private", color: "text-muted-foreground" },
-  };
-
-  const visibility = visibilityConfig[save.visibility];
 
   return (
     <div className="p-6 lg:p-8">
@@ -1050,20 +1043,64 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             {formatDate(save.savedAt)}
           </span>
           <span className="hidden sm:inline">•</span>
-          {/* Visibility - Inline Editable via click */}
+          {/* Visibility Toggle */}
           <button
             type="button"
             onClick={() =>
               handleUpdateVisibility(save.visibility === "public" ? "private" : "public")
             }
-            className="group/visibility inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 transition-colors hover:bg-muted/50"
             disabled={updateSave.isPending}
+            className={cn(
+              "relative inline-flex h-7 items-center rounded-full border px-1 transition-all",
+              "hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              save.visibility === "public"
+                ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                : "border-muted bg-muted/50"
+            )}
           >
-            <Badge variant="secondary" className={cn("gap-1", visibility.color)}>
-              <visibility.icon className="h-3 w-3" />
-              {visibility.label}
-            </Badge>
-            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/visibility:opacity-100 transition-opacity" />
+            {/* Private indicator */}
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded-full transition-all duration-200",
+                save.visibility === "private" ? "bg-background shadow-sm" : "bg-transparent"
+              )}
+            >
+              <EyeOff
+                className={cn(
+                  "h-3 w-3 transition-colors",
+                  save.visibility === "private" ? "text-foreground" : "text-muted-foreground/50"
+                )}
+              />
+            </span>
+            {/* Public indicator */}
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded-full transition-all duration-200",
+                save.visibility === "public" ? "bg-green-500 shadow-sm" : "bg-transparent"
+              )}
+            >
+              <Eye
+                className={cn(
+                  "h-3 w-3 transition-colors",
+                  save.visibility === "public" ? "text-white" : "text-muted-foreground/50"
+                )}
+              />
+            </span>
+            {/* Label */}
+            <span
+              className={cn(
+                "ml-1 mr-1.5 text-xs font-medium transition-colors",
+                save.visibility === "public"
+                  ? "text-green-700 dark:text-green-400"
+                  : "text-muted-foreground"
+              )}
+            >
+              {save.visibility === "public" ? "Public" : "Private"}
+            </span>
+            {updateSave.isPending && (
+              <Loader2 className="absolute -right-5 h-3 w-3 animate-spin text-muted-foreground" />
+            )}
           </button>
         </div>
 
