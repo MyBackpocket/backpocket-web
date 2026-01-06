@@ -390,69 +390,66 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
           </a>
         )}
 
-        {/* Title and actions */}
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{save.title || save.url}</h1>
-            <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-              <a
-                href={save.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 hover:text-foreground transition-colors"
-              >
-                <Globe className="h-4 w-4" />
-                {getDomainFromUrl(save.url)}
-                <ExternalLink className="h-3 w-3" />
-              </a>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                {formatDate(save.savedAt)}
-              </span>
-            </div>
-          </div>
+        {/* Title */}
+        <h1 className="text-2xl font-semibold tracking-tight mb-2">{save.title || save.url}</h1>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toggleFavorite.mutate({ saveId: save.id })}
-              className={cn(save.isFavorite && "text-yellow-500")}
-            >
-              <Star className={cn("mr-2 h-4 w-4", save.isFavorite && "fill-current")} />
-              {save.isFavorite ? "Unfavorite" : "Favorite"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toggleArchive.mutate({ saveId: save.id })}
-              className={cn(save.isArchived && "text-primary")}
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              {save.isArchived ? "Unarchive" : "Archive"}
-            </Button>
-          </div>
-        </div>
-
-        {/* Status badges */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
+        {/* Meta row: source, date, and status badges */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mb-4">
+          <a
+            href={save.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <Globe className="h-4 w-4" />
+            {getDomainFromUrl(save.url)}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+          <span className="hidden sm:inline">•</span>
+          <span className="flex items-center gap-1">
+            <Calendar className="h-4 w-4" />
+            {formatDate(save.savedAt)}
+          </span>
+          <span className="hidden sm:inline">•</span>
           <Badge variant="secondary" className={cn("gap-1", visibility.color)}>
             <visibility.icon className="h-3 w-3" />
             {visibility.label}
           </Badge>
-          {save.isFavorite && (
-            <Badge variant="secondary" className="gap-1 text-yellow-600">
-              <Star className="h-3 w-3 fill-current" />
-              Favorite
-            </Badge>
-          )}
-          {save.isArchived && (
-            <Badge variant="secondary" className="gap-1">
-              <Archive className="h-3 w-3" />
-              Archived
-            </Badge>
-          )}
+        </div>
+
+        {/* Action toolbar */}
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toggleFavorite.mutate({ saveId: save.id })}
+            className={cn("gap-2", save.isFavorite && "text-yellow-500")}
+          >
+            <Star className={cn("h-4 w-4", save.isFavorite && "fill-current")} />
+            <span className="hidden sm:inline">{save.isFavorite ? "Unfavorite" : "Favorite"}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toggleArchive.mutate({ saveId: save.id })}
+            className={cn("gap-2", save.isArchived && "text-primary")}
+          >
+            <Archive className="h-4 w-4" />
+            <span className="hidden sm:inline">{save.isArchived ? "Unarchive" : "Archive"}</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleOpenEditDialog} className="gap-2">
+            <Edit className="h-4 w-4" />
+            <span className="hidden sm:inline">Edit</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-destructive hover:text-destructive"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Delete</span>
+          </Button>
         </div>
 
         {/* Description */}
@@ -587,25 +584,6 @@ export default function SaveDetailPage({ params }: { params: Promise<{ saveId: s
             </CardContent>
           </Card>
         )}
-
-        {/* Actions */}
-        <Separator className="my-8" />
-
-        <div className="flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={handleOpenEditDialog}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
