@@ -124,15 +124,18 @@ function PublicSpaceContent() {
   );
 
   // Fetch tags and collections for filters
-  const { data: tags } = trpc.public.listPublicTags.useQuery(
+  const { data: tags, isLoading: tagsLoading } = trpc.public.listPublicTags.useQuery(
     { spaceId: space?.id || "" },
     { enabled: !!space?.id }
   );
 
-  const { data: collections } = trpc.public.listPublicCollections.useQuery(
-    { spaceId: space?.id || "" },
-    { enabled: !!space?.id }
-  );
+  const { data: collections, isLoading: collectionsLoading } =
+    trpc.public.listPublicCollections.useQuery(
+      { spaceId: space?.id || "" },
+      { enabled: !!space?.id }
+    );
+
+  const filtersLoading = tagsLoading || collectionsLoading;
 
   // Flatten paginated saves
   const saves = savesData?.pages.flatMap((page) => page.items) || [];
@@ -176,11 +179,12 @@ function PublicSpaceContent() {
   const hasActiveFilters = urlQuery || urlTag || urlCollection;
   const isGridLayout = space?.publicLayout === "grid";
 
-  // Loading state
-  if (spaceLoading || !space) {
-    if (spaceLoading) {
-      return <PublicSpaceSkeleton />;
-    }
+  // Loading state - wait for space AND filters to avoid layout shifts
+  if (spaceLoading || filtersLoading) {
+    return <PublicSpaceSkeleton />;
+  }
+
+  if (!space) {
     return <SpaceNotFound />;
   }
 
