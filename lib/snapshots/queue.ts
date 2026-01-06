@@ -353,7 +353,16 @@ async function processSnapshotInDev(saveId: string, spaceId: string, url: string
           error_message: result.message,
         })
         .eq("save_id", saveId);
-      console.log(`[snapshots-dev] Failed: ${result.reason} - ${result.message}`);
+
+      // Enhanced failure logging
+      const domain = new URL(url).hostname;
+      console.warn(`[snapshots-dev] ❌ SNAPSHOT FAILED`);
+      console.warn(`[snapshots-dev]   Save ID: ${saveId}`);
+      console.warn(`[snapshots-dev]   URL: ${url}`);
+      console.warn(`[snapshots-dev]   Domain: ${domain}`);
+      console.warn(`[snapshots-dev]   Reason: ${result.reason}`);
+      console.warn(`[snapshots-dev]   Message: ${result.message}`);
+      console.warn(`[snapshots-dev]   Status: ${finalStatus}`);
       return;
     }
 
@@ -423,7 +432,16 @@ async function processSnapshotInDev(saveId: string, spaceId: string, url: string
     console.log(`[snapshots-dev] Success: save=${saveId} words=${result.metadata.wordCount}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[snapshots-dev] Unexpected error: ${message}`);
+    const stack = error instanceof Error ? error.stack : undefined;
+
+    // Enhanced error logging
+    console.error(`[snapshots-dev] ❌ UNEXPECTED ERROR`);
+    console.error(`[snapshots-dev]   Save ID: ${saveId}`);
+    console.error(`[snapshots-dev]   URL: ${url}`);
+    console.error(`[snapshots-dev]   Error: ${message}`);
+    if (stack) {
+      console.error(`[snapshots-dev]   Stack: ${stack.split("\n").slice(0, 3).join("\n")}`);
+    }
 
     try {
       const { supabaseAdmin } = await import("@/lib/supabase");

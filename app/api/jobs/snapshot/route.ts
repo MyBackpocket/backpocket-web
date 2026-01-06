@@ -149,7 +149,16 @@ export async function POST(request: Request) {
         })
         .eq("save_id", saveId);
 
-      console.log(`[snapshot-worker] Failed: ${result.reason} - ${result.message}`);
+      // Enhanced failure logging
+      console.warn(`[snapshot-worker] ❌ SNAPSHOT FAILED`);
+      console.warn(`[snapshot-worker]   Save ID: ${saveId}`);
+      console.warn(`[snapshot-worker]   URL: ${url}`);
+      console.warn(`[snapshot-worker]   Domain: ${domain}`);
+      console.warn(`[snapshot-worker]   Attempt: ${attempt}/${SNAPSHOT_MAX_ATTEMPTS}`);
+      console.warn(`[snapshot-worker]   Reason: ${result.reason}`);
+      console.warn(`[snapshot-worker]   Message: ${result.message}`);
+      console.warn(`[snapshot-worker]   Status: ${finalStatus}`);
+
       return NextResponse.json({
         status: finalStatus,
         reason: result.reason,
@@ -264,7 +273,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error(`[snapshot-worker] Unexpected error: ${message}`);
+    const stack = error instanceof Error ? error.stack : undefined;
+    const domain = new URL(url).hostname;
+
+    // Enhanced error logging
+    console.error(`[snapshot-worker] ❌ UNEXPECTED ERROR`);
+    console.error(`[snapshot-worker]   Save ID: ${saveId}`);
+    console.error(`[snapshot-worker]   URL: ${url}`);
+    console.error(`[snapshot-worker]   Domain: ${domain}`);
+    console.error(`[snapshot-worker]   Attempt: ${attempt}`);
+    console.error(`[snapshot-worker]   Error: ${message}`);
+    if (stack) {
+      console.error(`[snapshot-worker]   Stack: ${stack.split("\n").slice(0, 3).join("\n")}`);
+    }
 
     // Try to update status
     try {

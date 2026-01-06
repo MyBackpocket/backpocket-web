@@ -1,6 +1,15 @@
 "use client";
 
-import { Check, ChevronDown, Globe, Link as LinkIcon, Loader2, Lock, Plus } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Globe,
+  Info,
+  Link as LinkIcon,
+  Loader2,
+  Lock,
+  Plus,
+} from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -32,6 +41,63 @@ interface FetchedMetadata {
   siteName: string | null;
   imageUrl: string | null;
   favicon: string | null;
+}
+
+const PLACEHOLDER_PHRASES = [
+  "Analyzing page content",
+  "Extracting key details",
+  "Reading metadata",
+  "Processing page info",
+  "Gathering description",
+];
+
+function AnimatedDescriptionPlaceholder() {
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    // Cycle through phrases
+    const phraseInterval = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % PLACEHOLDER_PHRASES.length);
+    }, 2400);
+
+    // Animate dots
+    const dotInterval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : `${prev}.`));
+    }, 400);
+
+    return () => {
+      clearInterval(phraseInterval);
+      clearInterval(dotInterval);
+    };
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      {/* Skeleton container with cycling text */}
+      <div className="relative">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-muted animate-pulse" />
+          <span className="text-sm text-muted-foreground/70 italic">
+            {PLACEHOLDER_PHRASES[phraseIndex]}
+            {dots}
+          </span>
+        </div>
+        {/* Skeleton lines to simulate description */}
+        <div className="mt-2 space-y-1.5">
+          <div className="h-2.5 bg-muted/60 rounded animate-pulse w-full" />
+          <div className="h-2.5 bg-muted/60 rounded animate-pulse w-4/5" />
+        </div>
+      </div>
+      {/* Background processing disclaimer */}
+      <div className="flex items-start gap-1.5 pt-1">
+        <Info className="h-3 w-3 text-muted-foreground/50 mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground/50">
+          You can close this — we'll continue processing in the background
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export function QuickAdd() {
@@ -125,8 +191,7 @@ export function QuickAdd() {
     // Generate mock metadata based on URL
     const mockMetadata: FetchedMetadata = {
       title: generateTitleFromUrl(inputUrl),
-      description:
-        "This is an automatically fetched description from the page. In production, this would be the actual meta description.",
+      description: null, // Real API would fetch actual meta description
       siteName: domain.charAt(0).toUpperCase() + domain.slice(1).split(".")[0],
       imageUrl: inputUrl.includes("youtube")
         ? "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg"
@@ -314,10 +379,14 @@ export function QuickAdd() {
                         <h3 className="font-semibold text-base leading-tight line-clamp-2">
                           {metadata.title}
                         </h3>
-                        {metadata.description && (
+                        {metadata.description ? (
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {metadata.description}
                           </p>
+                        ) : (
+                          <div className="mt-2">
+                            <AnimatedDescriptionPlaceholder />
+                          </div>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
                           {metadata.siteName || new URL(url).hostname}
