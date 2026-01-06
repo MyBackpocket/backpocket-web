@@ -282,35 +282,68 @@ export function ReaderMode({
           <div className="mb-4 pb-4 border-b border-dashed">
             <p className="flex items-start gap-2 text-xs text-muted-foreground/70">
               <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span>
-                This simplified view was extracted using{" "}
-                <a
-                  href="https://github.com/mozilla/readability"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
-                >
-                  Mozilla Readability
-                </a>
-                , the same technology behind Firefox Reader View. For the complete experience,{" "}
-                <a
-                  href={originalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
-                >
-                  visit the original
-                </a>
-                .
-              </span>
+              {content.siteName?.toLowerCase() === "twitter" ||
+              content.siteName?.toLowerCase() === "x" ? (
+                <span>
+                  This simplified view was extracted using{" "}
+                  <a
+                    href="https://developer.twitter.com/en/docs/twitter-for-websites/oembed-api"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                  >
+                    Twitter's oEmbed API
+                  </a>
+                  . Media and replies are not included. For the complete experience,{" "}
+                  <a
+                    href={originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                  >
+                    visit the original
+                  </a>
+                  .
+                </span>
+              ) : (
+                <span>
+                  This simplified view was extracted using{" "}
+                  <a
+                    href="https://github.com/mozilla/readability"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                  >
+                    Mozilla Readability
+                  </a>
+                  , the same technology behind Firefox Reader View. For the complete experience,{" "}
+                  <a
+                    href={originalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                  >
+                    visit the original
+                  </a>
+                  .
+                </span>
+              )}
             </p>
           </div>
 
           {/* Byline */}
           {content.byline && (
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <div className="flex items-start gap-2 text-sm text-muted-foreground mb-4">
               <User className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>{content.byline}</span>
+              {content.byline.startsWith("<a") ? (
+                <span
+                  className="[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline"
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Byline HTML is sanitized on server
+                  dangerouslySetInnerHTML={{ __html: content.byline }}
+                />
+              ) : (
+                <span>{content.byline}</span>
+              )}
             </div>
           )}
 

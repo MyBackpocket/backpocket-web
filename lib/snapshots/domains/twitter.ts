@@ -126,27 +126,34 @@ async function tryTwitterOEmbed(url: string): Promise<SnapshotContent | null> {
       }
     }
 
-    // Build readable HTML content
-    const content = `
-      <article class="tweet">
-        <header>
-          <a href="${data.author_url}" rel="noopener noreferrer">@${data.author_name}</a>
-        </header>
-        <div class="tweet-content">
-          ${tweetText
-            .split("\n\n")
-            .map((p) => `<p>${escapeHtml(p)}</p>`)
-            .join("\n")}
-        </div>
-        <footer>
-          <a href="${data.url}" rel="noopener noreferrer">View on ${data.provider_name}</a>
-        </footer>
-      </article>
-    `.trim();
+    // Extract username from author URL (e.g., "https://twitter.com/4nzn" -> "4nzn")
+    const usernameMatch = data.author_url.match(/(?:twitter\.com|x\.com)\/(\w+)/i);
+    const username = usernameMatch ? usernameMatch[1] : data.author_name;
+
+    // Build readable HTML content with inline link at end
+    const paragraphs = tweetText.split("\n\n").filter((p) => p.trim());
+    const viewLink = `<a href="${data.url}" rel="noopener noreferrer" target="_blank">View on ${data.provider_name} →</a>`;
+
+    const content =
+      paragraphs.length > 0
+        ? paragraphs
+            .map((p, i) => {
+              const escaped = escapeHtml(p);
+              // Append link to last paragraph
+              if (i === paragraphs.length - 1) {
+                return `<p>${escaped} ${viewLink}</p>`;
+              }
+              return `<p>${escaped}</p>`;
+            })
+            .join("\n")
+        : `<p>${viewLink}</p>`;
+
+    // Byline with link to author profile - rendered by ReaderMode component
+    const bylineHtml = `<a href="${data.author_url}" rel="noopener noreferrer" target="_blank">@${username}</a>`;
 
     return {
-      title: `Tweet by @${data.author_name}`,
-      byline: data.author_name,
+      title: `Tweet by @${username}`,
+      byline: bylineHtml,
       content,
       textContent: tweetText,
       excerpt,
@@ -211,36 +218,31 @@ async function tryFxTwitter(url: string): Promise<SnapshotContent | null> {
       }
     }
 
-    // Extract author from title (format: "Author (@handle)")
-    let author = tweetInfo.username;
-    if (ogTitle) {
-      const authorMatch = ogTitle.match(/^(.+?)\s*\(@\w+\)/);
-      if (authorMatch) {
-        author = authorMatch[1];
-      }
-    }
+    // Build readable HTML content with inline link at end
+    const paragraphs = ogDescription.split("\n\n").filter((p) => p.trim());
+    const viewLink = `<a href="${url}" rel="noopener noreferrer" target="_blank">View on Twitter →</a>`;
 
-    // Build readable HTML content
-    const content = `
-      <article class="tweet">
-        <header>
-          <a href="https://twitter.com/${tweetInfo.username}" rel="noopener noreferrer">@${tweetInfo.username}</a>
-        </header>
-        <div class="tweet-content">
-          ${ogDescription
-            .split("\n\n")
-            .map((p) => `<p>${escapeHtml(p)}</p>`)
-            .join("\n")}
-        </div>
-        <footer>
-          <a href="${url}" rel="noopener noreferrer">View on Twitter</a>
-        </footer>
-      </article>
-    `.trim();
+    const content =
+      paragraphs.length > 0
+        ? paragraphs
+            .map((p, i) => {
+              const escaped = escapeHtml(p);
+              // Append link to last paragraph
+              if (i === paragraphs.length - 1) {
+                return `<p>${escaped} ${viewLink}</p>`;
+              }
+              return `<p>${escaped}</p>`;
+            })
+            .join("\n")
+        : `<p>${viewLink}</p>`;
+
+    // Byline with link to author profile - rendered by ReaderMode component
+    const authorUrl = `https://twitter.com/${tweetInfo.username}`;
+    const bylineHtml = `<a href="${authorUrl}" rel="noopener noreferrer" target="_blank">@${tweetInfo.username}</a>`;
 
     return {
       title: ogTitle || `Tweet by @${tweetInfo.username}`,
-      byline: author,
+      byline: bylineHtml,
       content,
       textContent: ogDescription,
       excerpt,

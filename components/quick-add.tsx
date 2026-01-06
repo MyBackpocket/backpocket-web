@@ -110,6 +110,7 @@ export function QuickAdd() {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [duplicateSave, setDuplicateSave] = useState<DuplicateSaveInfo | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [autoCloseTimer, setAutoCloseTimer] = useState<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -136,9 +137,12 @@ export function QuickAdd() {
       utils.space.listSaves.invalidate();
       utils.space.getStats.invalidate();
       utils.space.getDashboardData.invalidate();
-      setTimeout(() => {
+      // Auto-close after 3 seconds if description data isn't available
+      // (in production this would poll for snapshot, but since we use mock data, just auto-close)
+      const timer = setTimeout(() => {
         resetAndClose();
-      }, 1000);
+      }, 3000);
+      setAutoCloseTimer(timer);
     },
     onError: (error) => {
       // Check if this is a duplicate error (cause is added by our error formatter)
@@ -156,6 +160,9 @@ export function QuickAdd() {
   });
 
   const resetAndClose = useCallback(() => {
+    if (autoCloseTimer) {
+      clearTimeout(autoCloseTimer);
+    }
     setOpen(false);
     setUrl("");
     setState("idle");
@@ -164,7 +171,8 @@ export function QuickAdd() {
     setSelectedCollection(null);
     setDuplicateSave(null);
     setShowDuplicateModal(false);
-  }, []);
+    setAutoCloseTimer(null);
+  }, [autoCloseTimer]);
 
   // Focus input when dialog opens
   useEffect(() => {
@@ -503,6 +511,13 @@ export function QuickAdd() {
                   {state === "success" ? "Saved!" : state === "saving" ? "Saving..." : "Save"}
                   {state === "preview" && <span className="ml-2 text-xs opacity-70">⌘↵</span>}
                 </Button>
+
+                {/* Auto-close notice when still processing */}
+                {state === "success" && !metadata?.description && (
+                  <p className="text-center text-xs text-muted-foreground animate-in fade-in">
+                    Closing automatically — processing continues in the background
+                  </p>
+                )}
               </div>
             )}
           </div>
