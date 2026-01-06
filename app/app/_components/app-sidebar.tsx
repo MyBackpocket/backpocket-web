@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Pencil,
   Settings,
-  Tags,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -28,7 +27,6 @@ const navigation = [
   { name: "Dashboard", href: routes.app.root, icon: LayoutDashboard },
   { name: "Saves", href: routes.app.saves, icon: Bookmark },
   { name: "Collections", href: routes.app.collections, icon: FolderOpen },
-  { name: "Tags", href: routes.app.tags, icon: Tags },
 ];
 
 /**

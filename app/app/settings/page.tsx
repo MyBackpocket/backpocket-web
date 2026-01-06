@@ -258,12 +258,14 @@ export default function SettingsPage() {
           {/* Profile Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Profile</CardTitle>
+              <CardTitle>Space</CardTitle>
               <CardDescription>This information appears on your public space</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Display Name</Label>
+                <Label htmlFor="name" className="block pb-2">
+                  Display Name
+                </Label>
                 <Input
                   id="name"
                   placeholder="Your name or title"
@@ -273,7 +275,9 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
+                <Label htmlFor="bio" className="block pb-2">
+                  Bio
+                </Label>
                 <Textarea
                   id="bio"
                   placeholder="A short description of your collection"
@@ -419,7 +423,9 @@ export default function SettingsPage() {
                   <Separator />
 
                   <div className="space-y-2">
-                    <Label htmlFor="layout">Default Layout</Label>
+                    <Label htmlFor="layout" className="block pb-2">
+                      Default Layout
+                    </Label>
                     <Select
                       value={publicLayout}
                       onValueChange={(v) => setPublicLayout(v as PublicLayout)}
@@ -555,7 +561,9 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="defaultVisibility">When you save a new link</Label>
+                <Label htmlFor="defaultVisibility" className="block pb-2">
+                  When you save a new link
+                </Label>
                 <Select
                   value={defaultSaveVisibility}
                   onValueChange={(v) => setDefaultSaveVisibility(v as SaveVisibility)}

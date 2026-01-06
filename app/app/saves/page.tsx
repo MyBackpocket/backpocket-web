@@ -6,6 +6,7 @@ import {
   Bookmark,
   Calendar,
   Check,
+  ChevronsUpDown,
   ExternalLink,
   Eye,
   EyeOff,
@@ -18,17 +19,25 @@ import {
   Plus,
   Search,
   Star,
+  Tag,
   Trash2,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -45,13 +54,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { routes } from "@/lib/constants/routes";
 import { useDebounce } from "@/lib/hooks/use-debounce";
@@ -60,7 +63,16 @@ import type { APISave, SaveVisibility } from "@/lib/types";
 import { cn, formatDate, getDomainFromUrl } from "@/lib/utils";
 
 type ViewMode = "grid" | "list";
-type FilterType = "all" | "favorites" | "archived" | "public" | "private";
+
+// Individual filter options (can be combined)
+type FilterOption = "favorites" | "archived" | "public" | "private";
+
+const FILTER_OPTIONS: { value: FilterOption; label: string; icon: typeof Star }[] = [
+  { value: "favorites", label: "Favorites", icon: Star },
+  { value: "archived", label: "Archived", icon: Archive },
+  { value: "public", label: "Public", icon: Eye },
+  { value: "private", label: "Private", icon: EyeOff },
+];
 
 function SaveListItem({
   save,
@@ -401,16 +413,12 @@ function SavesSkeleton({ viewMode }: { viewMode: ViewMode }) {
 }
 
 export default function SavesPage() {
-  const searchParams = useSearchParams();
-  const filterParam = searchParams.get("filter");
-  const validFilters: FilterType[] = ["all", "favorites", "archived", "public", "private"];
-  const initialFilter = validFilters.includes(filterParam as FilterType)
-    ? (filterParam as FilterType)
-    : "all";
-
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filter, setFilter] = useState<FilterType>(initialFilter);
+  const [activeFilters, setActiveFilters] = useState<Set<FilterOption>>(new Set());
+  const [filterComboboxOpen, setFilterComboboxOpen] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagComboboxOpen, setTagComboboxOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [singleDeleteTarget, setSingleDeleteTarget] = useState<APISave | null>(null);
@@ -418,25 +426,63 @@ export default function SavesPage() {
   // Debounce search to avoid firing on every keystroke (300ms delay)
   const debouncedSearch = useDebounce(searchQuery, 300);
 
+  // Debounce filters so user can select multiple without triggering query on each click
+  const filtersArray = Array.from(activeFilters).sort().join(",");
+  const debouncedFiltersArray = useDebounce(filtersArray, 300);
+  const debouncedFilters = new Set(
+    debouncedFiltersArray ? (debouncedFiltersArray.split(",") as FilterOption[]) : []
+  );
+
+  // Build query options from debounced filters
   const queryOptions = {
     query: debouncedSearch || undefined,
-    isArchived: filter === "archived" ? true : filter === "all" ? undefined : false,
-    isFavorite: filter === "favorites" ? true : undefined,
-    visibility:
-      filter === "public"
-        ? ("public" as SaveVisibility)
-        : filter === "private"
-          ? ("private" as SaveVisibility)
-          : undefined,
+    isArchived: debouncedFilters.has("archived") ? true : undefined,
+    isFavorite: debouncedFilters.has("favorites") ? true : undefined,
+    visibility: debouncedFilters.has("public")
+      ? ("public" as SaveVisibility)
+      : debouncedFilters.has("private")
+        ? ("private" as SaveVisibility)
+        : undefined,
+    tagId: tagFilter || undefined,
     // Reduced from 50 to 20 for faster initial loads
     limit: 20,
+  };
+
+  // Toggle a filter option
+  const toggleFilter = (option: FilterOption) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(option)) {
+        next.delete(option);
+      } else {
+        // If selecting public, remove private (and vice versa) - they're mutually exclusive
+        if (option === "public") next.delete("private");
+        if (option === "private") next.delete("public");
+        next.add(option);
+      }
+      return next;
+    });
+  };
+
+  // Get filter button label
+  const getFilterLabel = () => {
+    if (activeFilters.size === 0) return "All saves";
+    if (activeFilters.size === 1) {
+      const filter = Array.from(activeFilters)[0];
+      return FILTER_OPTIONS.find((f) => f.value === filter)?.label || "Filtered";
+    }
+    return `${activeFilters.size} filters`;
   };
 
   const { data, isLoading, isFetching } = trpc.space.listSaves.useQuery(queryOptions, {
     // Keep previous data visible while fetching new data (avoids UI thrash)
     placeholderData: keepPreviousData,
   });
+  const { data: allTags, isLoading: isTagsLoading } = trpc.space.listTags.useQuery();
   const utils = trpc.useUtils();
+
+  // Get the selected tag name for display
+  const selectedTagName = tagFilter && allTags?.find((t) => t.id === tagFilter)?.name;
 
   const toggleFavorite = trpc.space.toggleFavorite.useMutation({
     onSuccess: () => {
@@ -537,6 +583,174 @@ export default function SavesPage() {
         </Link>
       </div>
 
+      {/* Filters and search */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        {/* Select button - always rendered to avoid CLS */}
+        <Button
+          variant="outline"
+          onClick={selectAll}
+          className="gap-2 h-10 shrink-0"
+          disabled={!data?.items?.length}
+        >
+          <div
+            className={cn(
+              "flex h-4 w-4 items-center justify-center rounded border-2 transition-colors",
+              allSelected
+                ? "border-primary bg-primary text-primary-foreground"
+                : isSelectionMode
+                  ? "border-primary bg-primary/50 text-primary-foreground"
+                  : "border-muted-foreground/50"
+            )}
+          >
+            {(allSelected || isSelectionMode) && <Check className="h-3 w-3" strokeWidth={3} />}
+          </div>
+          Select All
+        </Button>
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search saves..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-10 pl-10 pr-10"
+          />
+          {/* Subtle loading indicator for background fetches */}
+          {isFetching && !isLoading && (
+            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Filter combobox - multi-select */}
+          <Popover open={filterComboboxOpen} onOpenChange={setFilterComboboxOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                aria-expanded={filterComboboxOpen}
+                className="w-[160px] h-10 justify-between"
+              >
+                <Filter className="mr-2 h-4 w-4 shrink-0" />
+                <span className="truncate flex-1 text-left">{getFilterLabel()}</span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandList>
+                  <CommandGroup>
+                    {FILTER_OPTIONS.map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = activeFilters.has(option.value);
+                      return (
+                        <CommandItem
+                          key={option.value}
+                          value={option.value}
+                          onSelect={() => toggleFilter(option.value)}
+                        >
+                          <Check
+                            className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")}
+                          />
+                          <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                          {option.label}
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                  {activeFilters.size > 0 && (
+                    <CommandGroup>
+                      <CommandItem
+                        onSelect={() => setActiveFilters(new Set())}
+                        className="justify-center text-center text-muted-foreground"
+                      >
+                        Clear filters
+                      </CommandItem>
+                    </CommandGroup>
+                  )}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* Tag filter combobox with search */}
+          <Popover open={tagComboboxOpen} onOpenChange={setTagComboboxOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                aria-expanded={tagComboboxOpen}
+                className="w-[160px] h-10 justify-between"
+                disabled={isTagsLoading || !allTags?.length}
+              >
+                <Tag className="mr-2 h-4 w-4 shrink-0" />
+                <span className="truncate flex-1 text-left">
+                  {tagFilter ? selectedTagName || "Tag" : "All tags"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search tags..." />
+                <CommandList>
+                  <CommandEmpty>No tags found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all"
+                      onSelect={() => {
+                        setTagFilter(null);
+                        setTagComboboxOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn("mr-2 h-4 w-4", !tagFilter ? "opacity-100" : "opacity-0")}
+                      />
+                      All tags
+                    </CommandItem>
+                    {allTags?.map((tag) => (
+                      <CommandItem
+                        key={tag.id}
+                        value={tag.name}
+                        onSelect={() => {
+                          setTagFilter(tag.id);
+                          setTagComboboxOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            tagFilter === tag.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {tag.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          <div className="flex h-10 items-center rounded-lg border bg-muted/50 px-1.5 gap-1">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-7 w-7 rounded-md"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-7 w-7 rounded-md"
+              onClick={() => setViewMode("grid")}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Bulk actions bar */}
       {isSelectionMode && (
         <div className="mb-6 flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
@@ -580,66 +794,6 @@ export default function SavesPage() {
         </div>
       )}
 
-      {/* Filters and search */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search saves..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10"
-          />
-          {/* Subtle loading indicator for background fetches */}
-          {isFetching && !isLoading && (
-            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Select button when not in selection mode */}
-          {!isSelectionMode && data?.items && data.items.length > 0 && (
-            <Button variant="outline" size="sm" onClick={selectAll} className="gap-2">
-              <div className="h-4 w-4 rounded border-2 border-current" />
-              Select
-            </Button>
-          )}
-
-          <Select value={filter} onValueChange={(value) => setFilter(value as FilterType)}>
-            <SelectTrigger className="w-[140px]">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All saves</SelectItem>
-              <SelectItem value="favorites">Favorites</SelectItem>
-              <SelectItem value="public">Public</SelectItem>
-              <SelectItem value="private">Private</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="flex rounded-lg border bg-muted/50 p-1">
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon"
-              className="h-8 w-8 rounded-md"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="icon"
-              className="h-8 w-8 rounded-md"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
       {/* Saves list/grid */}
       {isLoading ? (
         <SavesSkeleton viewMode={viewMode} />
@@ -680,11 +834,11 @@ export default function SavesPage() {
           </div>
           <h3 className="mt-6 text-lg font-medium">No saves found</h3>
           <p className="mt-2 text-muted-foreground">
-            {searchQuery || filter !== "all"
+            {searchQuery || activeFilters.size > 0 || tagFilter
               ? "Try adjusting your search or filters"
               : "Add your first save to get started"}
           </p>
-          {!searchQuery && filter === "all" && (
+          {!searchQuery && activeFilters.size === 0 && !tagFilter && (
             <Link href={routes.app.savesNew} className="mt-6 inline-block">
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />

@@ -86,8 +86,8 @@ export const statsRouter = router({
       space = await createSpaceForUser(ctx.userId);
     }
 
-    // Fetch stats and recent saves in parallel
-    const [statsResult, savesResult] = await Promise.all([
+    // Fetch stats, recent saves, and domains in parallel
+    const [statsResult, savesResult, domainsResult] = await Promise.all([
       // Stats queries
       Promise.all([
         supabaseAdmin
@@ -121,6 +121,12 @@ export const statsRouter = router({
         .eq("space_id", space.id)
         .order("saved_at", { ascending: false })
         .limit(5),
+      // Custom domains query - only active ones
+      supabaseAdmin
+        .from("domain_mappings")
+        .select("domain, status")
+        .eq("space_id", space.id)
+        .eq("status", "active"),
     ]);
 
     const [
@@ -133,6 +139,7 @@ export const statsRouter = router({
     ] = statsResult;
 
     const { data: saves } = savesResult;
+    const { data: domains } = domainsResult;
 
     const recentSaves: Save[] = (saves || []).map((save) => ({
       id: save.id,
@@ -154,6 +161,9 @@ export const statsRouter = router({
       collections: [],
     }));
 
+    // Extract active custom domain hostnames
+    const customDomains = (domains || []).map((d) => d.domain as string);
+
     return {
       space,
       stats: {
@@ -165,6 +175,7 @@ export const statsRouter = router({
         visitCount,
       },
       recentSaves,
+      customDomains,
     };
   }),
 });

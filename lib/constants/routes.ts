@@ -22,7 +22,6 @@ export const routes = {
     savesNew: "/app/saves/new",
     save: (id: string) => `/app/saves/${id}`,
     collections: "/app/collections",
-    tags: "/app/tags",
     settings: "/app/settings",
   },
 

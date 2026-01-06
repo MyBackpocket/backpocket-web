@@ -18,55 +18,102 @@ type CollectionListItem = {
 };
 
 export const collectionsRouter = router({
-  listCollections: protectedProcedure.query(async ({ ctx }): Promise<CollectionListItem[]> => {
-    const space = await getUserSpace(ctx.userId, ctx.spaceCache);
-    if (!space) return [];
+  listCollections: protectedProcedure
+    .input(
+      z
+        .object({
+          query: z.string().optional(),
+          visibility: z.enum(["private", "public"]).optional(),
+          defaultTagId: z.string().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }): Promise<CollectionListItem[]> => {
+      const space = await getUserSpace(ctx.userId, ctx.spaceCache);
+      if (!space) return [];
 
-    const { data: collections } = await supabaseAdmin
-      .from("collections")
-      .select("*, save_collections(count)")
-      .eq("space_id", space.id)
-      .order("name");
+      // Build query with optional filters
+      let selectClause = "*, save_collections(count)";
 
-    if (!collections) return [];
-
-    // Fetch default tags for all collections in one query
-    const collectionIds = collections.map((c) => c.id);
-    const { data: defaultTagLinks } = await supabaseAdmin
-      .from("collection_default_tags")
-      .select("collection_id, tags(id, space_id, name, created_at, updated_at)")
-      .in("collection_id", collectionIds);
-
-    // Group default tags by collection
-    const defaultTagsByCollection = new Map<string, Tag[]>();
-    for (const link of defaultTagLinks || []) {
-      const tags = defaultTagsByCollection.get(link.collection_id) || [];
-      if (link.tags && typeof link.tags === "object" && !Array.isArray(link.tags)) {
-        const tag = link.tags as unknown as Record<string, unknown>;
-        tags.push({
-          id: tag.id as string,
-          spaceId: tag.space_id as string,
-          name: tag.name as string,
-          createdAt: new Date(tag.created_at as string),
-          updatedAt: new Date(tag.updated_at as string),
-        });
+      // If filtering by default tag, use inner join
+      if (input?.defaultTagId) {
+        selectClause = "*, save_collections(count), collection_default_tags!inner(tag_id)";
       }
-      defaultTagsByCollection.set(link.collection_id, tags);
-    }
 
-    return collections.map((col) => ({
-      id: col.id,
-      spaceId: col.space_id,
-      name: col.name,
-      visibility: col.visibility as "private" | "public",
-      createdAt: new Date(col.created_at),
-      updatedAt: new Date(col.updated_at),
-      defaultTags: defaultTagsByCollection.get(col.id) || [],
-      _count: {
-        saves: Array.isArray(col.save_collections) ? col.save_collections.length : 0,
-      },
-    }));
-  }),
+      let query = supabaseAdmin
+        .from("collections")
+        .select(selectClause)
+        .eq("space_id", space.id)
+        .order("name");
+
+      // Apply text search filter
+      if (input?.query) {
+        const escapedQuery = input.query.replace(/[%_]/g, "\\$&");
+        query = query.ilike("name", `%${escapedQuery}%`);
+      }
+
+      // Apply visibility filter
+      if (input?.visibility) {
+        query = query.eq("visibility", input.visibility);
+      }
+
+      // Apply default tag filter via the joined table
+      if (input?.defaultTagId) {
+        query = query.eq("collection_default_tags.tag_id", input.defaultTagId);
+      }
+
+      const { data, error } = await query;
+
+      if (error || !data || !Array.isArray(data)) return [];
+
+      // Type assertion since select clause is dynamic
+      const collections = data as unknown as Array<{
+        id: string;
+        space_id: string;
+        name: string;
+        visibility: string;
+        created_at: string;
+        updated_at: string;
+        save_collections: { count: number }[];
+      }>;
+
+      // Fetch default tags for all collections in one query
+      const collectionIds = collections.map((c) => c.id);
+      const { data: defaultTagLinks } = await supabaseAdmin
+        .from("collection_default_tags")
+        .select("collection_id, tags(id, space_id, name, created_at, updated_at)")
+        .in("collection_id", collectionIds);
+
+      // Group default tags by collection
+      const defaultTagsByCollection = new Map<string, Tag[]>();
+      for (const link of defaultTagLinks || []) {
+        const tags = defaultTagsByCollection.get(link.collection_id) || [];
+        if (link.tags && typeof link.tags === "object" && !Array.isArray(link.tags)) {
+          const tag = link.tags as unknown as Record<string, unknown>;
+          tags.push({
+            id: tag.id as string,
+            spaceId: tag.space_id as string,
+            name: tag.name as string,
+            createdAt: new Date(tag.created_at as string),
+            updatedAt: new Date(tag.updated_at as string),
+          });
+        }
+        defaultTagsByCollection.set(link.collection_id, tags);
+      }
+
+      return collections.map((col) => ({
+        id: col.id,
+        spaceId: col.space_id,
+        name: col.name,
+        visibility: col.visibility as "private" | "public",
+        createdAt: new Date(col.created_at),
+        updatedAt: new Date(col.updated_at),
+        defaultTags: defaultTagsByCollection.get(col.id) || [],
+        _count: {
+          saves: Array.isArray(col.save_collections) ? col.save_collections.length : 0,
+        },
+      }));
+    }),
 
   createCollection: protectedProcedure
     .input(

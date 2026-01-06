@@ -11,7 +11,6 @@ import {
   Loader2,
   Plus,
   Star,
-  Tags,
   Trash2,
 } from "lucide-react";
 import Image from "next/image";
@@ -85,7 +84,10 @@ function RecentSavesSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 rounded-lg p-2">
+        <div
+          key={i}
+          className="flex items-center gap-4 rounded-lg border border-border/60 bg-card p-3"
+        >
           <Skeleton className="h-12 w-16 shrink-0 rounded-md" />
           <div className="flex-1 min-w-0 space-y-2">
             <Skeleton className="h-5 w-3/4" />
@@ -201,12 +203,6 @@ export default function DashboardClient() {
                 Manage collections
               </Button>
             </Link>
-            <Link href={routes.app.tags}>
-              <Button variant="outline" className="w-full justify-start gap-2">
-                <Tags className="h-4 w-4" />
-                Manage tags
-              </Button>
-            </Link>
             <Link href={routes.app.settings}>
               <Button variant="outline" className="w-full justify-start gap-2">
                 <Globe className="h-4 w-4" />
@@ -231,11 +227,11 @@ export default function DashboardClient() {
             {isLoading ? (
               <RecentSavesSkeleton />
             ) : recentSaves && recentSaves.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {recentSaves.map((save) => (
                   <div
                     key={save.id}
-                    className="group relative flex items-center rounded-lg p-2 transition-all duration-200 hover:bg-accent"
+                    className="group relative flex items-center rounded-lg border border-border/60 bg-card p-3 transition-all duration-200 hover:border-border hover:bg-accent hover:shadow-sm"
                   >
                     {/* Thumbnail */}
                     <Link href={routes.app.save(save.id)} className="shrink-0">
@@ -340,46 +336,67 @@ export default function DashboardClient() {
       {/* Public space preview */}
       {space?.visibility === "public" && (
         <Card className="mt-8">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Your Public Space</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {buildSpaceHostname({
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">
+                Your Public {(dashboardData?.customDomains?.length ?? 0) > 0 ? "Spaces" : "Space"}
+              </CardTitle>
+              <Link
+                href={routes.app.settings}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>
+                <strong className="text-foreground">{formatNumber(stats?.visitCount ?? 0)}</strong>{" "}
+                visits
+              </span>
+              <span>
+                <strong className="text-foreground">{formatNumber(stats?.publicSaves ?? 0)}</strong>{" "}
+                public
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Base URL */}
+              <a
+                href={buildSpaceUrl({
                   slug: space.slug,
                   rootDomain: ROOT_DOMAIN,
                   isLocalhost: IS_DEVELOPMENT,
                 })}
-              </p>
-            </div>
-            <a
-              href={buildSpaceUrl({
-                slug: space.slug,
-                rootDomain: ROOT_DOMAIN,
-                isLocalhost: IS_DEVELOPMENT,
-              })}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="outline" size="sm">
-                Visit
-                <ArrowUpRight className="ml-1 h-3 w-3" />
-              </Button>
-            </a>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4 text-muted-foreground" />
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border/50 bg-muted/30 px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/50"
+              >
+                <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>
-                  <strong>{formatNumber(stats?.visitCount ?? 0)}</strong> visits
+                  {buildSpaceHostname({
+                    slug: space.slug,
+                    rootDomain: ROOT_DOMAIN,
+                    isLocalhost: IS_DEVELOPMENT,
+                  })}
                 </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <span>
-                  <strong>{formatNumber(stats?.publicSaves ?? 0)}</strong> public saves
-                </span>
-              </div>
+                <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
+              </a>
+
+              {/* Custom domains */}
+              {dashboardData?.customDomains?.map((domain) => (
+                <a
+                  key={domain}
+                  href={`https://${domain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-denim/30 bg-denim/5 px-2.5 py-1.5 text-sm transition-colors hover:bg-denim/10"
+                >
+                  <Globe className="h-3.5 w-3.5 text-denim" />
+                  <span>{domain}</span>
+                  <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
+                </a>
+              ))}
             </div>
           </CardContent>
         </Card>
