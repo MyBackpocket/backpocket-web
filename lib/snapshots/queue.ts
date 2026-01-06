@@ -409,7 +409,7 @@ async function processSnapshotInDev(saveId: string, spaceId: string, url: string
       })
       .eq("save_id", saveId);
 
-    // Backfill save metadata if missing
+    // Backfill save metadata if missing or has bad placeholder values
     const { data: save } = await supabaseAdmin
       .from("saves")
       .select("title, site_name, image_url, description")
@@ -418,7 +418,12 @@ async function processSnapshotInDev(saveId: string, spaceId: string, url: string
 
     if (save) {
       const updates: Record<string, unknown> = {};
-      if (!save.title && result.metadata.title) updates.title = result.metadata.title;
+      // Update title if missing OR if it's a known bad placeholder (e.g., "Tweet" from X.com error pages)
+      const badTitlePatterns = [/^tweet$/i, /^log\s*in$/i, /^sign\s*up$/i, /^x$/i];
+      const hasBadTitle = save.title && badTitlePatterns.some((p) => p.test(save.title.trim()));
+      if ((!save.title || hasBadTitle) && result.metadata.title) {
+        updates.title = result.metadata.title;
+      }
       if (!save.site_name && result.metadata.siteName) updates.site_name = result.metadata.siteName;
       if (!save.image_url && result.metadata.imageUrl) updates.image_url = result.metadata.imageUrl;
       if (!save.description && result.metadata.excerpt)

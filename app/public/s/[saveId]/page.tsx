@@ -249,16 +249,7 @@ export default async function PublicSavePermalinkPage({
                         >
                           Twitter's oEmbed API
                         </a>
-                        . Media and replies are not included. For the complete experience,{" "}
-                        <a
-                          href={save.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
-                        >
-                          visit the original
-                        </a>
-                        .
+                        . Text may be truncated; media and replies are not included.
                       </span>
                     ) : (
                       <span>
@@ -316,6 +307,14 @@ export default async function PublicSavePermalinkPage({
                   // biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized on the server
                   dangerouslySetInnerHTML={{ __html: snapshot.content.content }}
                 />
+
+                {/* Twitter truncation notice */}
+                {(snapshot.content.siteName?.toLowerCase() === "twitter" ||
+                  snapshot.content.siteName?.toLowerCase() === "x") && (
+                  <p className="mt-4 text-sm text-muted-foreground/60 italic">
+                    [text may be truncated]
+                  </p>
+                )}
 
                 {/* Original link at the end */}
                 <div className="mt-8 pt-6 border-t text-center">

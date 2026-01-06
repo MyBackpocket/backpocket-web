@@ -13,9 +13,21 @@ import type { SnapshotContent } from "@/lib/types";
 const TWITTER_OEMBED_URL = "https://publish.twitter.com/oembed";
 
 // Regex patterns to match Twitter/X URLs and extract tweet IDs
-const TWITTER_URL_PATTERNS = [
+const TWITTER_TWEET_PATTERNS = [
   /^https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/i,
   /^https?:\/\/(?:mobile\.)?(?:twitter\.com|x\.com)\/(\w+)\/status\/(\d+)/i,
+];
+
+// X Articles use /article/ instead of /status/
+const TWITTER_ARTICLE_PATTERN =
+  /^https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/(\w+)\/article\/(\d+)/i;
+
+// Content that indicates we got an error/login page instead of actual content
+const ERROR_PAGE_INDICATORS = [
+  /^log\s*in$/i,
+  /^sign\s*up$/i,
+  /^something went wrong/i,
+  /^tweet$/i, // Generic "Tweet" title without username
 ];
 
 interface TwitterOEmbedResponse {
@@ -32,18 +44,96 @@ interface TweetInfo {
   tweetId: string;
 }
 
+// Twitter epoch: November 4, 2010 at 01:42:54.657 UTC
+const TWITTER_EPOCH = BigInt("1288834974657");
+
+/**
+ * Extract timestamp from a Twitter/X Snowflake ID
+ * Twitter IDs encode the creation timestamp in the upper bits
+ */
+function getDateFromSnowflakeId(id: string): Date | null {
+  try {
+    const snowflakeId = BigInt(id);
+    // Timestamp is in the upper 41 bits (shift right 22 bits)
+    const timestampMs = (snowflakeId >> BigInt(22)) + TWITTER_EPOCH;
+    return new Date(Number(timestampMs));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format a date for display in byline (e.g., "Jan 5, 2026")
+ */
+function formatBylineDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * Generate a descriptive title from username and tweet content
+ * Format: "Tweet by @username: first ~50 chars..."
+ */
+function generateTweetTitle(username: string, content: string): string {
+  const baseTitle = `Tweet by @${username}`;
+
+  if (!content || content.trim().length === 0) {
+    return baseTitle;
+  }
+
+  const trimmedContent = content.trim();
+  const maxLength = 50;
+
+  if (trimmedContent.length <= maxLength) {
+    return `${baseTitle}: ${trimmedContent}`;
+  }
+
+  // Truncate at word boundary
+  let truncated = trimmedContent.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+
+  // If there's a reasonable word boundary (at least 70% of max length), use it
+  if (lastSpace > maxLength * 0.7) {
+    truncated = truncated.slice(0, lastSpace);
+  }
+
+  return `${baseTitle}: ${truncated}...`;
+}
+
+/**
+ * Check if content appears to be from an error/login page
+ */
+function isErrorPageContent(content: string | null | undefined): boolean {
+  if (!content) return true;
+  const trimmed = content.trim();
+  if (trimmed.length === 0) return true;
+  return ERROR_PAGE_INDICATORS.some((pattern) => pattern.test(trimmed));
+}
+
 /**
  * Check if a URL is a Twitter/X tweet URL
  */
 export function isTwitterUrl(url: string): boolean {
-  return TWITTER_URL_PATTERNS.some((pattern) => pattern.test(url));
+  return (
+    TWITTER_TWEET_PATTERNS.some((pattern) => pattern.test(url)) || TWITTER_ARTICLE_PATTERN.test(url)
+  );
+}
+
+/**
+ * Check if a URL is an X Article (not a regular tweet)
+ */
+function isArticleUrl(url: string): boolean {
+  return TWITTER_ARTICLE_PATTERN.test(url);
 }
 
 /**
  * Parse tweet info from a Twitter/X URL
  */
 function parseTweetUrl(url: string): TweetInfo | null {
-  for (const pattern of TWITTER_URL_PATTERNS) {
+  for (const pattern of TWITTER_TWEET_PATTERNS) {
     const match = url.match(pattern);
     if (match) {
       return {
@@ -130,29 +220,22 @@ async function tryTwitterOEmbed(url: string): Promise<SnapshotContent | null> {
     const usernameMatch = data.author_url.match(/(?:twitter\.com|x\.com)\/(\w+)/i);
     const username = usernameMatch ? usernameMatch[1] : data.author_name;
 
-    // Build readable HTML content with inline link at end
+    // Extract tweet date from Snowflake ID
+    const tweetInfo = parseTweetUrl(url);
+    const tweetDate = tweetInfo ? getDateFromSnowflakeId(tweetInfo.tweetId) : null;
+    const dateStr = tweetDate ? ` · ${formatBylineDate(tweetDate)}` : "";
+
+    // Build readable HTML content
     const paragraphs = tweetText.split("\n\n").filter((p) => p.trim());
-    const viewLink = `<a href="${data.url}" rel="noopener noreferrer" target="_blank">View on ${data.provider_name} →</a>`;
 
     const content =
-      paragraphs.length > 0
-        ? paragraphs
-            .map((p, i) => {
-              const escaped = escapeHtml(p);
-              // Append link to last paragraph
-              if (i === paragraphs.length - 1) {
-                return `<p>${escaped} ${viewLink}</p>`;
-              }
-              return `<p>${escaped}</p>`;
-            })
-            .join("\n")
-        : `<p>${viewLink}</p>`;
+      paragraphs.length > 0 ? paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n") : "";
 
-    // Byline with link to author profile - rendered by ReaderMode component
-    const bylineHtml = `<a href="${data.author_url}" rel="noopener noreferrer" target="_blank">@${username}</a>`;
+    // Byline with link to author profile and date - rendered by ReaderMode component
+    const bylineHtml = `<a href="${data.author_url}" rel="noopener noreferrer" target="_blank">@${username}</a>${dateStr}`;
 
     return {
-      title: `Tweet by @${username}`,
+      title: generateTweetTitle(username, tweetText),
       byline: bylineHtml,
       content,
       textContent: tweetText,
@@ -202,7 +285,8 @@ async function tryFxTwitter(url: string): Promise<SnapshotContent | null> {
       .querySelector('meta[property="og:site_name"]')
       ?.getAttribute("content");
 
-    if (!ogDescription) {
+    // Check if we got error page content instead of actual tweet
+    if (!ogDescription || isErrorPageContent(ogDescription) || isErrorPageContent(ogTitle)) {
       return null;
     }
 
@@ -218,30 +302,23 @@ async function tryFxTwitter(url: string): Promise<SnapshotContent | null> {
       }
     }
 
-    // Build readable HTML content with inline link at end
+    // Build readable HTML content
     const paragraphs = ogDescription.split("\n\n").filter((p) => p.trim());
-    const viewLink = `<a href="${url}" rel="noopener noreferrer" target="_blank">View on Twitter →</a>`;
 
     const content =
-      paragraphs.length > 0
-        ? paragraphs
-            .map((p, i) => {
-              const escaped = escapeHtml(p);
-              // Append link to last paragraph
-              if (i === paragraphs.length - 1) {
-                return `<p>${escaped} ${viewLink}</p>`;
-              }
-              return `<p>${escaped}</p>`;
-            })
-            .join("\n")
-        : `<p>${viewLink}</p>`;
+      paragraphs.length > 0 ? paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n") : "";
 
-    // Byline with link to author profile - rendered by ReaderMode component
+    // Extract tweet date from Snowflake ID
+    const tweetDate = getDateFromSnowflakeId(tweetInfo.tweetId);
+    const dateStr = tweetDate ? ` · ${formatBylineDate(tweetDate)}` : "";
+
+    // Byline with link to author profile and date - rendered by ReaderMode component
     const authorUrl = `https://twitter.com/${tweetInfo.username}`;
-    const bylineHtml = `<a href="${authorUrl}" rel="noopener noreferrer" target="_blank">@${tweetInfo.username}</a>`;
+    const bylineHtml = `<a href="${authorUrl}" rel="noopener noreferrer" target="_blank">@${tweetInfo.username}</a>${dateStr}`;
 
     return {
-      title: ogTitle || `Tweet by @${tweetInfo.username}`,
+      // Always use generated title for consistency (includes content snippet)
+      title: generateTweetTitle(tweetInfo.username, ogDescription),
       byline: bylineHtml,
       content,
       textContent: ogDescription,
@@ -272,6 +349,31 @@ function escapeHtml(text: string): string {
  * Tries oEmbed first, falls back to FxTwitter
  */
 export async function extractTweet(url: string): Promise<SnapshotContent | null> {
+  // X Articles (/article/) are not supported - they require authentication
+  // and don't work with oEmbed or FxTwitter
+  if (isArticleUrl(url)) {
+    // Return a placeholder result so we don't fall back to Readability
+    // (which would just extract the login page)
+    const match = url.match(TWITTER_ARTICLE_PATTERN);
+    const username = match ? match[1] : "unknown";
+    const articleId = match ? match[2] : null;
+
+    // Extract article date from Snowflake ID
+    const articleDate = articleId ? getDateFromSnowflakeId(articleId) : null;
+    const dateStr = articleDate ? ` · ${formatBylineDate(articleDate)}` : "";
+
+    return {
+      title: `X Article by @${username}`,
+      byline: `<a href="https://x.com/${username}" rel="noopener noreferrer" target="_blank">@${username}</a>${dateStr}`,
+      content: `<p>X Articles require authentication and cannot be snapshotted. <a href="${url}" rel="noopener noreferrer" target="_blank">View the original article on X</a>.</p>`,
+      textContent: "X Articles require authentication and cannot be snapshotted.",
+      excerpt: "X Articles require authentication and cannot be snapshotted.",
+      siteName: "X",
+      length: 0,
+      language: null,
+    };
+  }
+
   // Try Twitter oEmbed API first (official, most reliable)
   const oembedResult = await tryTwitterOEmbed(url);
   if (oembedResult) {

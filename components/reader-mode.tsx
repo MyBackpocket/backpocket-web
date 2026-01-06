@@ -5,6 +5,7 @@ import {
   BookOpen,
   Clock,
   ExternalLink,
+  Globe,
   Info,
   Loader2,
   RefreshCw,
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { SnapshotContent, SnapshotStatus } from "@/lib/types";
+import { getDomainFromUrl } from "@/lib/utils";
 
 interface ReaderModeProps {
   status: SnapshotStatus | null;
@@ -294,16 +296,7 @@ export function ReaderMode({
                   >
                     Twitter's oEmbed API
                   </a>
-                  . Media and replies are not included. For the complete experience,{" "}
-                  <a
-                    href={originalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline underline-offset-2 hover:text-muted-foreground transition-colors"
-                  >
-                    visit the original
-                  </a>
-                  .
+                  . Text may be truncated; media and replies are not included.
                 </span>
               ) : (
                 <span>
@@ -358,6 +351,29 @@ export function ReaderMode({
             // biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized on the server
             dangerouslySetInnerHTML={{ __html: content.content }}
           />
+
+          {/* Twitter truncation notice - only show for actual tweet content, not placeholders */}
+          {(content.siteName?.toLowerCase() === "twitter" ||
+            content.siteName?.toLowerCase() === "x") &&
+            content.length > 0 && (
+              <p className="mt-4 text-sm text-muted-foreground/60 italic">
+                [text may be truncated]
+              </p>
+            )}
+
+          {/* Original link footer */}
+          <div className="mt-8 pt-6 border-t text-center">
+            <a
+              href={originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Globe className="h-4 w-4" />
+              View original at {getDomainFromUrl(originalUrl)}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
         </CardContent>
       </Card>
     );
