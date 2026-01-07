@@ -6,6 +6,7 @@
  */
 
 import type { SnapshotContent } from "@/lib/types";
+import { extractReddit, isRedditUrl } from "./reddit";
 import { extractTweet, isTwitterUrl } from "./twitter";
 
 export type DomainExtractor = (url: string) => Promise<SnapshotContent | null>;
@@ -23,6 +24,10 @@ const DOMAIN_HANDLERS: DomainHandler[] = [
   {
     matcher: isTwitterUrl,
     extractor: extractTweet,
+  },
+  {
+    matcher: isRedditUrl,
+    extractor: extractReddit,
   },
   // Future handlers can be added here:
   // { matcher: isInstagramUrl, extractor: extractInstagram },
@@ -50,4 +55,5 @@ export function hasDomainExtractor(url: string): boolean {
 }
 
 // Re-export individual extractors for direct use if needed
+export { extractReddit, isRedditUrl } from "./reddit";
 export { extractTweet, isTwitterUrl } from "./twitter";

@@ -154,17 +154,17 @@ Content-Type: application/json
 
 ### 🔓 Public (No Auth Required)
 
-| Action                   | Endpoint                       | Method | Consumer |
-| ------------------------ | ------------------------------ | ------ | -------- |
-| Resolve space by host    | `public.resolveSpaceByHost`    | POST   | ✅ All   |
-| Resolve space by slug    | `public.resolveSpaceBySlug`    | POST   | ✅ All   |
-| List public saves        | `public.listPublicSaves`       | POST   | ✅ All   |
-| Get public save          | `public.getPublicSave`         | POST   | ✅ All   |
-| List public tags         | `public.listPublicTags`        | POST   | ✅ All   |
-| List public collections  | `public.listPublicCollections` | POST   | ✅ All   |
-| Get public snapshot      | `public.getPublicSaveSnapshot` | POST   | ✅ All   |
-| Register visit           | `public.registerVisit`         | POST   | ✅ All   |
-| Get visit count          | `public.getVisitCount`         | POST   | ✅ All   |
+| Action                  | Endpoint                       | Method | Consumer |
+| ----------------------- | ------------------------------ | ------ | -------- |
+| Resolve space by host   | `public.resolveSpaceByHost`    | POST   | ✅ All   |
+| Resolve space by slug   | `public.resolveSpaceBySlug`    | POST   | ✅ All   |
+| List public saves       | `public.listPublicSaves`       | POST   | ✅ All   |
+| Get public save         | `public.getPublicSave`         | POST   | ✅ All   |
+| List public tags        | `public.listPublicTags`        | POST   | ✅ All   |
+| List public collections | `public.listPublicCollections` | POST   | ✅ All   |
+| Get public snapshot     | `public.getPublicSaveSnapshot` | POST   | ✅ All   |
+| Register visit          | `public.registerVisit`         | POST   | ✅ All   |
+| Get visit count         | `public.getVisitCount`         | POST   | ✅ All   |
 
 ---
 
@@ -891,6 +891,36 @@ Combined endpoint that returns space settings, stats, and recent saves in one ca
 
 Snapshots capture readable content from saved URLs for offline reading.
 
+#### Domain-Specific Extraction
+
+Some domains have specialized extraction handlers that provide better results than generic Readability parsing:
+
+| Domain                 | Method                | Notes                                       |
+| ---------------------- | --------------------- | ------------------------------------------- |
+| `twitter.com`, `x.com` | Twitter oEmbed API    | Tweet text only; media/replies not included |
+| `reddit.com`           | old.reddit.com scrape | Posts, comments, subreddits, user profiles  |
+
+**Twitter/X Handling:**
+
+- **Tweets** (`/status/` URLs): Extracted via [Twitter's oEmbed API](https://developer.twitter.com/en/docs/twitter-for-websites/oembed-api), with FxTwitter as fallback
+- **X Articles** (`/article/` URLs): Cannot be snapshotted (require authentication); returns placeholder content
+- Tweet dates are extracted from Snowflake IDs
+- The `byline` field contains HTML with a link to the author's profile
+- The `content` field contains the tweet text (may be truncated by the API)
+
+**Reddit Handling:**
+
+- All Reddit URL variants are normalized to `old.reddit.com` for extraction (cleaner HTML)
+- Supported URL patterns:
+  - **Posts:** `/r/subreddit/comments/id/slug/` — Title, self-text or link, author, score, timestamp
+  - **Comments:** `/r/subreddit/comments/id/slug/commentId/` — Comment text, author, parent post context
+  - **Subreddits:** `/r/subreddit/` — Description, subscriber count
+  - **User profiles:** `/u/username/` or `/user/username/` — Karma, account age, trophies, recent activity
+  - **Short URLs:** `redd.it/id` — Resolved and extracted as posts
+- Deleted/removed content is detected and shows placeholder text
+- Private subreddits return a "private community" message
+- The `byline` field contains HTML with links to the author and subreddit
+
 #### Get Save Snapshot
 
 **Endpoint:** `POST /api/trpc/space.getSaveSnapshot`
@@ -1044,14 +1074,14 @@ List public saves with optional filtering by search query, tag, or collection.
 
 **Input Schema:**
 
-| Field          | Type     | Required | Default | Description                          |
-| -------------- | -------- | -------- | ------- | ------------------------------------ |
-| `spaceId`      | `string` | ✅ Yes   | -       | Space ID to list saves from          |
-| `query`        | `string` | ❌ No    | -       | Search in title, description, URL    |
-| `tagName`      | `string` | ❌ No    | -       | Filter by tag name (case-insensitive)|
-| `collectionId` | `string` | ❌ No    | -       | Filter by collection ID              |
-| `cursor`       | `string` | ❌ No    | -       | Pagination cursor (ISO date)         |
-| `limit`        | `number` | ❌ No    | 20      | Results per page (1-50)              |
+| Field          | Type     | Required | Default | Description                           |
+| -------------- | -------- | -------- | ------- | ------------------------------------- |
+| `spaceId`      | `string` | ✅ Yes   | -       | Space ID to list saves from           |
+| `query`        | `string` | ❌ No    | -       | Search in title, description, URL     |
+| `tagName`      | `string` | ❌ No    | -       | Filter by tag name (case-insensitive) |
+| `collectionId` | `string` | ❌ No    | -       | Filter by collection ID               |
+| `cursor`       | `string` | ❌ No    | -       | Pagination cursor (ISO date)          |
+| `limit`        | `number` | ❌ No    | 20      | Results per page (1-50)               |
 
 **Response:**
 
@@ -1254,8 +1284,14 @@ interface SaveSnapshot {
 }
 
 interface SnapshotContent {
-  content: string; // HTML content
-  textContent: string; // Plain text
+  title: string;
+  byline: string | null; // May contain HTML (e.g., author link for tweets)
+  content: string; // Sanitized HTML content
+  textContent: string; // Plain text version
+  excerpt: string;
+  siteName: string | null;
+  length: number;
+  language: string | null;
 }
 
 // === Stats ===
@@ -1528,6 +1564,28 @@ These parameters affect content and are **not** stripped:
 ---
 
 ## Changelog
+
+### 2026-01-06 (c)
+
+#### Added
+
+- **Reddit Snapshot Extraction:** Reddit URLs now use specialized extraction instead of generic Readability parsing
+  - Posts, comments, subreddits, and user profiles are supported
+  - All Reddit URL variants (www, old, new, np, m, i, redd.it) are normalized to old.reddit.com
+  - Extracts author, score, timestamps, and contextual links
+  - Handles deleted/removed content and private subreddits gracefully
+
+### 2026-01-06 (b)
+
+#### Added
+
+- **Twitter/X Snapshot Extraction:** Tweets are now extracted using Twitter's oEmbed API instead of generic Readability parsing
+  - Provides cleaner content extraction for tweet URLs
+  - Extracts tweet date from Snowflake ID
+  - Byline includes clickable author link
+  - Falls back to FxTwitter if oEmbed fails
+- **X Articles Handling:** X Articles (`/article/` URLs) are detected and return placeholder content (they require authentication and cannot be snapshotted)
+- **Domain-Specific Extractors:** New extensible system for handling domains that don't work well with Readability
 
 ### 2026-01-05 (b)
 

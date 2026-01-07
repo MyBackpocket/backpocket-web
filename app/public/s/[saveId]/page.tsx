@@ -217,7 +217,7 @@ export default async function PublicSavePermalinkPage({
                   Reader Mode
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  {snapshot.content.length && (
+                  {snapshot.content.length > 0 && (
                     <Badge variant="secondary" className="gap-1">
                       <Clock className="h-3 w-3" />
                       {Math.max(
@@ -308,13 +308,14 @@ export default async function PublicSavePermalinkPage({
                   dangerouslySetInnerHTML={{ __html: snapshot.content.content }}
                 />
 
-                {/* Twitter truncation notice */}
+                {/* Twitter truncation notice - only show for actual tweet content, not placeholders */}
                 {(snapshot.content.siteName?.toLowerCase() === "twitter" ||
-                  snapshot.content.siteName?.toLowerCase() === "x") && (
-                  <p className="mt-4 text-sm text-muted-foreground/60 italic">
-                    [text may be truncated]
-                  </p>
-                )}
+                  snapshot.content.siteName?.toLowerCase() === "x") &&
+                  snapshot.content.length > 0 && (
+                    <p className="mt-4 text-sm text-muted-foreground/60 italic">
+                      [text may be truncated]
+                    </p>
+                  )}
 
                 {/* Original link at the end */}
                 <div className="mt-8 pt-6 border-t text-center">
