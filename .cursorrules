@@ -29,3 +29,19 @@ Common shared patterns to check:
 - Save lists/grids: Dashboard components ↔ Public space page
 - Reader mode / snapshot display
 - Tags, collections, and metadata display
+
+## API Documentation
+
+When making changes to external-facing APIs that impact external clients (browser extensions, mobile apps, third-party integrations), **always update `docs/EXTERNAL-API-SPEC.md`**:
+
+- **New endpoints**: Add to the quick reference table and endpoint details section
+- **Changed endpoints**: Update input/output schemas, add migration notes if breaking
+- **New features**: Document behavior, add examples, update type definitions
+- **Domain extractors**: Update the Domain-Specific Extraction table and add handling notes
+- **Changelog**: Add a dated entry describing what changed
+
+External-facing changes include:
+- tRPC procedures in `lib/trpc/routers/` (especially `space/` and `public.ts`)
+- Domain extractors in `lib/snapshots/domains/`
+- URL normalization rules in `lib/utils/url.ts`
+- Error codes and response formats
